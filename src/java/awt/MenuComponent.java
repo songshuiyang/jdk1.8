@@ -129,24 +129,24 @@ public abstract class MenuComponent implements java.io.Serializable {
      */
     private static final long serialVersionUID = -4536902356223894379L;
 
-    static {
-        AWTAccessor.setMenuComponentAccessor(
-            new AWTAccessor.MenuComponentAccessor() {
-                public AppContext getAppContext(MenuComponent menuComp) {
-                    return menuComp.appContext;
-                }
-                public void setAppContext(MenuComponent menuComp,
-                                          AppContext appContext) {
-                    menuComp.appContext = appContext;
-                }
-                public MenuContainer getParent(MenuComponent menuComp) {
-                    return menuComp.parent;
-                }
-                public Font getFont_NoClientCode(MenuComponent menuComp) {
-                    return menuComp.getFont_NoClientCode();
-                }
-            });
-    }
+//    static {
+//        AWTAccessor.setMenuComponentAccessor(
+//            new AWTAccessor.MenuComponentAccessor() {
+//                public AppContext getAppContext(MenuComponent menuComp) {
+//                    return menuComp.appContext;
+//                }
+//                public void setAppContext(MenuComponent menuComp,
+//                                          AppContext appContext) {
+//                    menuComp.appContext = appContext;
+//                }
+//                public MenuContainer getParent(MenuComponent menuComp) {
+//                    return menuComp.parent;
+//                }
+//                public Font getFont_NoClientCode(MenuComponent menuComp) {
+//                    return menuComp.getFont_NoClientCode();
+//                }
+//            });
+//    }
 
     /**
      * Creates a <code>MenuComponent</code>.
