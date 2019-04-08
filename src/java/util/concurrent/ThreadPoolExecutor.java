@@ -893,6 +893,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      */
     private boolean addWorker(Runnable firstTask, boolean core) {
         retry:
+        // 外层循环，用于判断线程池状态
         for (;;) {
             int c = ctl.get();
             int rs = runStateOf(c);
@@ -903,7 +904,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
                    firstTask == null &&
                    ! workQueue.isEmpty()))
                 return false;
-
+            // 内层的循环，任务是将worker数量加1
             for (;;) {
                 int wc = workerCountOf(c);
                 if (wc >= CAPACITY ||
@@ -917,7 +918,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
                 // else CAS failed due to workerCount change; retry inner loop
             }
         }
-
+        // worker加1后，接下来将woker添加到HashSet<Worker>中，并启动worker
         boolean workerStarted = false;
         boolean workerAdded = false;
         Worker w = null;
@@ -946,6 +947,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
                 } finally {
                     mainLock.unlock();
                 }
+                // 如果往HashSet<Worker>添加成功，则启动该线程
                 if (workerAdded) {
                     t.start();
                     workerStarted = true;
@@ -1353,18 +1355,22 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
          * and so reject the task.
          */
         int c = ctl.get();
+        // 1.如果当前线程数量小于corePoolSize，则创建并启动线程。
         if (workerCountOf(c) < corePoolSize) {
             if (addWorker(command, true))
                 return;
             c = ctl.get();
         }
+        // 2.步骤1失败，则尝试进入阻塞队列，
         if (isRunning(c) && workQueue.offer(command)) {
+            // 入队列成功，检查线程池状态，如果状态部署RUNNING而且remove成功，则拒绝任务
             int recheck = ctl.get();
             if (! isRunning(recheck) && remove(command))
                 reject(command);
+            // 如果当前worker数量为0，通过addWorker(null, false)创建一个线程，其任务为null
             else if (workerCountOf(recheck) == 0)
                 addWorker(null, false);
-        }
+        } // 3. 步骤1和2失败，尝试将线程池的数量有corePoolSize扩充至maxPoolSize，如果失败，则拒绝任务
         else if (!addWorker(command, false))
             reject(command);
     }
