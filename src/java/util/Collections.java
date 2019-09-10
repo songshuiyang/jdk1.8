@@ -207,8 +207,7 @@ public class Collections {
      *         integers), or the search key is not mutually comparable
      *         with the elements of the list.
      */
-    public static <T>
-    int binarySearch(List<? extends Comparable<? super T>> list, T key) {
+    public static <T> int binarySearch(List<? extends Comparable<? super T>> list, T key) {
         if (list instanceof RandomAccess || list.size()<BINARYSEARCH_THRESHOLD)
             return Collections.indexedBinarySearch(list, key);
         else
