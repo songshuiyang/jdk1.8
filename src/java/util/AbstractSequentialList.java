@@ -26,6 +26,19 @@
 package java.util;
 
 /**
+ * 这个类提供了一个基本的List接口实现，为实现序列访问的数据储存结构的提供了所需要的最小化的接口实现，
+ * 对于支持随机访问数据的List比如数组，应该优先使用AbstractList，AbstractSequentialList 只支持按次序访问，而不像 AbstractList 那样支持随机访问。
+ *
+ * 这个类是在这个意义上AbstractList类相反，它实现了对列表的列表迭代器顶部的“随机访问”方法（get(int index)，
+ * set(int index, E element)，add(int index, E element)和remove(int index)），而不是周围的其他方法。
+ *
+ * 为了实现一个列表，程序员只需要扩展这个类，并提供listIterator和size方法的实现。 对于一个不可修改的列表，
+ * 程序员只需要实现列表迭代器的hasNext，next，hasPrevious，previous和index方法。
+ *
+ * 对于可修改的列表，程序员应该另外实现list iterator的set方法。 对于可变大小的列表，程序员应该另外实现list iterator的remove和add方法。
+ *
+ * 根据Collection接口规范中的建议，开发人员通常应该提供一个void（无参数）和集合构造函数。
+ *
  * This class provides a skeletal implementation of the <tt>List</tt>
  * interface to minimize the effort required to implement this interface
  * backed by a "sequential access" data store (such as a linked list).  For

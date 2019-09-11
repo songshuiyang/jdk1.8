@@ -151,6 +151,17 @@ public class ArrayList<E> extends AbstractList<E>
     private int size;
 
     /**
+     * 数组的最大容量
+     * 为什么是Integer.MAX_VALUE - 8 ，因为有些VM虚拟机会在一个数组中存储一些头部信息，所以采用这个值
+     *
+     * The maximum size of array to allocate.
+     * Some VMs reserve some header words in an array.
+     * Attempts to allocate larger arrays may result in
+     * OutOfMemoryError: Requested array size exceeds VM limit
+     */
+    private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
+
+    /**
      * Constructs an empty list with the specified initial capacity.
      *
      * @param  initialCapacity  the initial capacity of the list
@@ -199,6 +210,8 @@ public class ArrayList<E> extends AbstractList<E>
     }
 
     /**
+     * 将数组长度设置为等于vector的个数
+     *
      * Trims the capacity of this <tt>ArrayList</tt> instance to be the
      * list's current size.  An application can use this operation to minimize
      * the storage of an <tt>ArrayList</tt> instance.
@@ -260,17 +273,6 @@ public class ArrayList<E> extends AbstractList<E>
     }
 
     /**
-     * 数组的最大容量
-     * 为什么是Integer.MAX_VALUE - 8 ，因为有些VM虚拟机会在一个数组中存储一些头部信息，所以采用这个值
-     *
-     * The maximum size of array to allocate.
-     * Some VMs reserve some header words in an array.
-     * Attempts to allocate larger arrays may result in
-     * OutOfMemoryError: Requested array size exceeds VM limit
-     */
-    private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
-
-    /**
      * 扩容操作
      *
      * Increases the capacity to ensure that it can hold at least the
@@ -296,6 +298,12 @@ public class ArrayList<E> extends AbstractList<E>
         elementData = Arrays.copyOf(elementData, newCapacity);
     }
 
+    /**
+     * 如果超出了数组能容纳的最大元素个数，数组大小则取`Integer`最大值，否则去数组规定的最大值
+     *
+     * @param minCapacity
+     * @return
+     */
     private static int hugeCapacity(int minCapacity) {
         if (minCapacity < 0) // overflow 溢出
             throw new OutOfMemoryError();
@@ -1015,6 +1023,9 @@ public class ArrayList<E> extends AbstractList<E>
     }
 
     /**
+     * 返回指定的fromIndex （含）和toIndex之间的列表部分的视图
+     * subList方法虽然返回的是list的子列表，但其实是对list中一部分元素的操作，当向subList中插入或删除元素，list也会相应改变
+     *
      * Returns a view of the portion of this list between the specified
      * {@code fromIndex}, inclusive, and {@code toIndex}, exclusive.  (If
      * {@code fromIndex} and {@code toIndex} are equal, the returned list is
@@ -1043,9 +1054,9 @@ public class ArrayList<E> extends AbstractList<E>
      * @throws IndexOutOfBoundsException {@inheritDoc}
      * @throws IllegalArgumentException {@inheritDoc}
      */
-    // subList方法虽然返回的是list的子列表，但其实是对list中一部分元素的操作，当向subList中插入或删除元素，list也会相应改变
     public List<E> subList(int fromIndex, int toIndex) {
-        subListRangeCheck(fromIndex, toIndex, size); // 验证参数范围
+        // 验证参数范围
+        subListRangeCheck(fromIndex, toIndex, size);
         return new SubList(this, 0, fromIndex, toIndex);
     }
 

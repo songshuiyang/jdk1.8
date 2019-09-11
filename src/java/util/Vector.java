@@ -30,6 +30,10 @@ import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
 /**
+ *
+ * Vector类实现了可扩展的对象数组。 像数组一样，它包含可以使用整数索引访问的组件。
+ * 但是， Vector的大小可以根据需要增长或缩小，以适应在创建Vector之后添加和删除项目。
+ *
  * The {@code Vector} class implements a growable array of
  * objects. Like an array, it contains components that can be
  * accessed using an integer index. However, the size of a
@@ -80,11 +84,10 @@ import java.util.function.UnaryOperator;
  * @see LinkedList
  * @since   JDK1.0
  */
-public class Vector<E>
-    extends AbstractList<E>
-    implements List<E>, RandomAccess, Cloneable, java.io.Serializable
-{
+public class Vector<E> extends AbstractList<E> implements List<E>, RandomAccess, Cloneable, java.io.Serializable {
     /**
+     * 存放List元素的数组
+     *
      * The array buffer into which the components of the vector are
      * stored. The capacity of the vector is the length of this array buffer,
      * and is at least large enough to contain all the vector's elements.
@@ -96,6 +99,8 @@ public class Vector<E>
     protected Object[] elementData;
 
     /**
+     * 该 Vector对象中有效组件的数量
+     *
      * The number of valid components in this {@code Vector} object.
      * Components {@code elementData[0]} through
      * {@code elementData[elementCount-1]} are the actual items.
@@ -105,6 +110,8 @@ public class Vector<E>
     protected int elementCount;
 
     /**
+     * 当数组的大小大于其容量时，数组的容量自动增加的量。
+     *
      * The amount by which the capacity of the vector is automatically
      * incremented when its size becomes greater than its capacity.  If
      * the capacity increment is less than or equal to zero, the capacity
@@ -114,10 +121,27 @@ public class Vector<E>
      */
     protected int capacityIncrement;
 
-    /** use serialVersionUID from JDK 1.0.2 for interoperability */
+    /**
+     * 可序列化版本号
+     *
+     * use serialVersionUID from JDK 1.0.2 for interoperability
+     */
     private static final long serialVersionUID = -2767605614048989439L;
 
+
     /**
+     * 最大容量
+     *
+     * The maximum size of array to allocate.
+     * Some VMs reserve some header words in an array.
+     * Attempts to allocate larger arrays may result in
+     * OutOfMemoryError: Requested array size exceeds VM limit
+     */
+    private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
+
+    /**
+     * 构造方法，提供初始大小，和增长系数
+     *
      * Constructs an empty vector with the specified initial capacity and
      * capacity increment.
      *
@@ -137,6 +161,8 @@ public class Vector<E>
     }
 
     /**
+     * 构造方法，提供初始大小，增长系数为零
+     *
      * Constructs an empty vector with the specified initial capacity and
      * with its capacity increment equal to zero.
      *
@@ -149,6 +175,8 @@ public class Vector<E>
     }
 
     /**
+     * 无参构造方法
+     *
      * Constructs an empty vector so that its internal data array
      * has size {@code 10} and its standard capacity increment is
      * zero.
@@ -158,6 +186,8 @@ public class Vector<E>
     }
 
     /**
+     * 构造方法，将指定的集合元素转化为Vector
+     *
      * Constructs a vector containing the elements of the specified
      * collection, in the order they are returned by the collection's
      * iterator.
@@ -176,6 +206,8 @@ public class Vector<E>
     }
 
     /**
+     * 将elementData中的元素全部拷贝到anArray数组中
+     *
      * Copies the components of this vector into the specified array.
      * The item at index {@code k} in this vector is copied into
      * component {@code k} of {@code anArray}.
@@ -193,6 +225,8 @@ public class Vector<E>
     }
 
     /**
+     * 将数组长度设置为等于vector的个数
+     *
      * Trims the capacity of this vector to be the vector's current
      * size. If the capacity of this vector is larger than its current
      * size, then the capacity is changed to equal the size by replacing
@@ -209,6 +243,8 @@ public class Vector<E>
     }
 
     /**
+     * 扩充容量
+     *
      * Increases the capacity of this vector, if necessary, to ensure
      * that it can hold at least the number of components specified by
      * the minimum capacity argument.
@@ -233,6 +269,8 @@ public class Vector<E>
     }
 
     /**
+     * 扩充容量帮助函数
+     *
      * This implements the unsynchronized semantics of ensureCapacity.
      * Synchronized methods in this class can internally call this
      * method for ensuring capacity without incurring the cost of an
@@ -247,25 +285,34 @@ public class Vector<E>
     }
 
     /**
-     * The maximum size of array to allocate.
-     * Some VMs reserve some header words in an array.
-     * Attempts to allocate larger arrays may result in
-     * OutOfMemoryError: Requested array size exceeds VM limit
+     * 扩充容量函数
+     * @param minCapacity
      */
-    private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
-
     private void grow(int minCapacity) {
         // overflow-conscious code
+        // 老数组大小
         int oldCapacity = elementData.length;
-        int newCapacity = oldCapacity + ((capacityIncrement > 0) ?
-                                         capacityIncrement : oldCapacity); // 如果不指定capacityIncrement，每次扩展为原来的2倍
+        /**
+         * 1、指定capacityIncrement了就是 老数组大小 + 不指定capacityIncrement
+         * 2、不指定capacityIncrement，每次扩展为原来的2倍
+         */
+        int newCapacity = oldCapacity + ((capacityIncrement > 0) ? capacityIncrement : oldCapacity);
+        // 如果newCapacity小于指定的minCapacity，newCapacity取minCapacity
         if (newCapacity - minCapacity < 0)
             newCapacity = minCapacity;
+        // 如果超出了数组能容纳的最大元素个数，数组大小则取`Integer`最大值，否则去数组规定的最大值
         if (newCapacity - MAX_ARRAY_SIZE > 0)
             newCapacity = hugeCapacity(minCapacity);
+        // 生成一个长度为newCapacity数组，并将elementData数组中元素拷贝到新数组中，并将新数组的引用赋值给elementData
         elementData = Arrays.copyOf(elementData, newCapacity);
     }
 
+    /**
+     * 如果超出了数组能容纳的最大元素个数，数组大小则取`Integer`最大值，否则去数组规定的最大值
+     *
+     * @param minCapacity
+     * @return
+     */
     private static int hugeCapacity(int minCapacity) {
         if (minCapacity < 0) // overflow
             throw new OutOfMemoryError();
@@ -275,6 +322,8 @@ public class Vector<E>
     }
 
     /**
+     * 设置size
+     *
      * Sets the size of this vector. If the new size is greater than the
      * current size, new {@code null} items are added to the end of
      * the vector. If the new size is less than the current size, all
@@ -285,9 +334,11 @@ public class Vector<E>
      */
     public synchronized void setSize(int newSize) {
         modCount++;
-        if (newSize > elementCount) { // 指定newSize大于原来数组大小，进行扩容
+        // 指定newSize大于原来数组大小，进行扩容
+        if (newSize > elementCount) {
             ensureCapacityHelper(newSize);
-        } else { // 指定newSize小于等于原来数组大小，从newSize位置开始，将每个元素置空
+        } else {
+            // 指定newSize小于等于原来数组大小，从newSize位置开始，将每个元素置空
             for (int i = newSize ; i < elementCount ; i++) {
                 elementData[i] = null;
             }
@@ -296,6 +347,8 @@ public class Vector<E>
     }
 
     /**
+     * 返回当前容量
+     *
      * Returns the current capacity of this vector.
      *
      * @return  the current capacity (the length of its internal
@@ -303,16 +356,17 @@ public class Vector<E>
      *          of this vector)
      */
     public synchronized int capacity() {
-        return elementData.length; // 数组的容量
+        return elementData.length;
     }
 
     /**
+     * 元素的数量
      * Returns the number of components in this vector.
      *
      * @return  the number of components in this vector
      */
     public synchronized int size() {
-        return elementCount; // 元素的数量
+        return elementCount;
     }
 
     /**
@@ -327,6 +381,8 @@ public class Vector<E>
     }
 
     /**
+     * 可以遍历Vector
+     *
      * Returns an enumeration of the components of this vector. The
      * returned {@code Enumeration} object will generate all items in
      * this vector. The first item generated is the item at index {@code 0},
@@ -335,7 +391,6 @@ public class Vector<E>
      * @return  an enumeration of the components of this vector
      * @see     Iterator
      */
-    // 可以遍历Vector
     public Enumeration<E> elements() {
         return new Enumeration<E>() {
             int count = 0;
@@ -460,6 +515,8 @@ public class Vector<E>
     }
 
     /**
+     * 返回索引为index的元素
+     *
      * Returns the component at the specified index.
      *
      * <p>This method is identical in functionality to the {@link #get(int)}
@@ -479,6 +536,8 @@ public class Vector<E>
     }
 
     /**
+     * 返回第一个元素
+     *
      * Returns the first component (the item at index {@code 0}) of
      * this vector.
      *
@@ -493,6 +552,8 @@ public class Vector<E>
     }
 
     /**
+     * 返回最后一个元素
+     *
      * Returns the last component of the vector.
      *
      * @return  the last component of the vector, i.e., the component at index
@@ -507,6 +568,8 @@ public class Vector<E>
     }
 
     /**
+     * 将index位置的元素设置为obj
+     *
      * Sets the component at the specified {@code index} of this
      * vector to be the specified object. The previous component at that
      * position is discarded.
@@ -535,6 +598,8 @@ public class Vector<E>
     }
 
     /**
+     * 删除指定位置的元素，Object[]对象数组从index+1开始向前依次移动一个位置
+     *
      * Deletes the component at the specified index. Each component in
      * this vector with an index greater or equal to the specified
      * {@code index} is shifted downward to have an index one
@@ -571,6 +636,8 @@ public class Vector<E>
     }
 
     /**
+     * 将obj元素插入index位置
+     *
      * Inserts the specified object as a component in this vector at the
      * specified {@code index}. Each component in this vector with
      * an index greater or equal to the specified {@code index} is
@@ -606,6 +673,8 @@ public class Vector<E>
     }
 
     /**
+     * 添加元素
+     *
      * Adds the specified component to the end of this vector,
      * increasing its size by one. The capacity of this vector is
      * increased if its size becomes greater than its capacity.
@@ -623,6 +692,8 @@ public class Vector<E>
     }
 
     /**
+     * 删除元素 ，删除成功返回true, 否则返回false
+     *
      * Removes the first (lowest-indexed) occurrence of the argument
      * from this vector. If the object is found in this vector, each
      * component in the vector with an index greater or equal to the
@@ -779,8 +850,18 @@ public class Vector<E>
      * @since 1.2
      */
     public synchronized boolean add(E e) {
+        /**
+         * @see AbstractList#modCount
+         * 用于记录对象的修改次数，比如增、删、改，有一点版本控制的意思，可以理解成version，在特定的操作下需要对version进行检查
+         * 也基本存在于非线程安全的集合类中，这是一种Fail-Fast机制：
+         *    1、当多个线程对同一集合的内容进行操作时，可能就会产生此类异常。
+         *    2、比如当A通过iterator去遍历某集合的过程中，其他线程修改了此集合，此时会抛出ConcurrentModificationException异常。
+         *    3、此类机制就是通过modCount实现的，在迭代器初始化时，会赋值expectedModCount，在迭代过程中判断modCount和expectedModCount是否一致。
+         */
         modCount++;
+        // 扩充容量帮助函数
         ensureCapacityHelper(elementCount + 1);
+        // 在元素最后面添加新值
         elementData[elementCount++] = e;
         return true;
     }
