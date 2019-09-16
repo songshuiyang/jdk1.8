@@ -79,15 +79,17 @@ import java.util.function.Consumer;
  * @author Josh Bloch, Doug Lea
  * @param <E> the type of elements held in this collection
  */
-public class PriorityQueue<E> extends AbstractQueue<E>
-    implements java.io.Serializable {
+public class PriorityQueue<E> extends AbstractQueue<E> implements java.io.Serializable {
 
     private static final long serialVersionUID = -7720805057305804111L;
 
+    /**
+     * 默认初始大小
+     */
     private static final int DEFAULT_INITIAL_CAPACITY = 11;
 
     /**
-     * 队列容器， 默认是11
+     * 队列容器
      *
      * Priority queue represented as a balanced binary heap: the two
      * children of queue[n] are queue[2*n+1] and queue[2*(n+1)].  The
@@ -99,23 +101,27 @@ public class PriorityQueue<E> extends AbstractQueue<E>
     transient Object[] queue; // non-private to simplify nested class access
 
     /**
+     * 队列长度
      * The number of elements in the priority queue.
      */
     private int size = 0;
 
     /**
+     * 队列比较器， 为null使用自然排序
      * The comparator, or null if priority queue uses elements'
      * natural ordering.
      */
     private final Comparator<? super E> comparator;
 
     /**
+     * 记录修改次数
      * The number of times this priority queue has been
      * <i>structurally modified</i>.  See AbstractList for gory details.
      */
     transient int modCount = 0; // non-private to simplify nested class access
 
     /**
+     * 默认创建一个长度为11的数组
      * Creates a {@code PriorityQueue} with the default initial
      * capacity (11) that orders its elements according to their
      * {@linkplain Comparable natural ordering}.
@@ -125,6 +131,7 @@ public class PriorityQueue<E> extends AbstractQueue<E>
     }
 
     /**
+     * 创建一个指定长度的数组
      * Creates a {@code PriorityQueue} with the specified initial
      * capacity that orders its elements according to their
      * {@linkplain Comparable natural ordering}.
@@ -138,6 +145,7 @@ public class PriorityQueue<E> extends AbstractQueue<E>
     }
 
     /**
+     * 默认创建一个长度为11的数组，并指定队列比较器
      * Creates a {@code PriorityQueue} with the default initial capacity and
      * whose elements are ordered according to the specified comparator.
      *
@@ -151,6 +159,7 @@ public class PriorityQueue<E> extends AbstractQueue<E>
     }
 
     /**
+     * 创建一个指定长度的数组，并指定队列比较器
      * Creates a {@code PriorityQueue} with the specified initial capacity
      * that orders its elements according to the specified comparator.
      *
@@ -172,6 +181,8 @@ public class PriorityQueue<E> extends AbstractQueue<E>
     }
 
     /**
+     * 从其他集合中创建一个PriorityQueue
+     *
      * Creates a {@code PriorityQueue} containing the elements in the
      * specified collection.  If the specified collection is an instance of
      * a {@link SortedSet} or is another {@code PriorityQueue}, this
@@ -206,6 +217,7 @@ public class PriorityQueue<E> extends AbstractQueue<E>
     }
 
     /**
+     * 从PriorityQueue集合中构造PriorityQueue
      * Creates a {@code PriorityQueue} containing the elements in the
      * specified priority queue.  This priority queue will be
      * ordered according to the same ordering as the given priority
@@ -226,6 +238,8 @@ public class PriorityQueue<E> extends AbstractQueue<E>
     }
 
     /**
+     * 从SortedSet集合中构造PriorityQueue
+     *
      * Creates a {@code PriorityQueue} containing the elements in the
      * specified sorted set.   This priority queue will be ordered
      * according to the same ordering as the given sorted set.
@@ -291,14 +305,20 @@ public class PriorityQueue<E> extends AbstractQueue<E>
      * @param minCapacity the desired minimum capacity
      */
     private void grow(int minCapacity) {
+        // 原数组容量大小
         int oldCapacity = queue.length;
         // Double size if small; else grow by 50%
+        /**
+         * 如果原数组容量小于64，那么就是扩容`100%`左右，否则就是扩容`50%`
+         * 为什么+2？
+         */
         int newCapacity = oldCapacity + ((oldCapacity < 64) ?
                                          (oldCapacity + 2) :
                                          (oldCapacity >> 1));
         // overflow-conscious code
         if (newCapacity - MAX_ARRAY_SIZE > 0)
             newCapacity = hugeCapacity(minCapacity);
+        // copy数组
         queue = Arrays.copyOf(queue, newCapacity);
     }
 
@@ -333,16 +353,19 @@ public class PriorityQueue<E> extends AbstractQueue<E>
      * @throws NullPointerException if the specified element is null
      */
     public boolean offer(E e) {
+        // 不允许添加null值
         if (e == null)
             throw new NullPointerException();
+        // 记录修改了
         modCount++;
         int i = size;
+        // 扩容
         if (i >= queue.length)
             grow(i + 1);
         size = i + 1;
-        if (i == 0)
+        if (i == 0) // 第一个
             queue[0] = e;
-        else
+        else // 开始插入并排序了
             siftUp(i, e);
         return true;
     }
@@ -586,6 +609,7 @@ public class PriorityQueue<E> extends AbstractQueue<E>
 
     @SuppressWarnings("unchecked")
     public E poll() {
+        // 没有元素的话返回null
         if (size == 0)
             return null;
         int s = --size;
@@ -643,9 +667,10 @@ public class PriorityQueue<E> extends AbstractQueue<E>
      * @param x the item to insert
      */
     private void siftUp(int k, E x) {
+        // 指定了比较器
         if (comparator != null)
             siftUpUsingComparator(k, x);
-        else
+        else // 没有指定比较器
             siftUpComparable(k, x);
     }
 
