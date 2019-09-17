@@ -79,8 +79,7 @@ import java.util.Spliterator;
  * @author Doug Lea
  * @param <E> the type of elements held in this collection
  */
-public class ArrayBlockingQueue<E> extends AbstractQueue<E>
-        implements BlockingQueue<E>, java.io.Serializable {
+public class ArrayBlockingQueue<E> extends AbstractQueue<E> implements BlockingQueue<E>, java.io.Serializable {
 
     /**
      * Serialization ID. This class relies on default serialization
@@ -90,16 +89,28 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      */
     private static final long serialVersionUID = -817911632652898426L;
 
-    /** The queued items */
+    /**
+     * 存放元素的数组
+     * The queued items
+     */
     final Object[] items;
 
-    /** items index for next take, poll, peek or remove */
+    /**
+     * 记录下一个take、remove、peek的索引
+     * items index for next take, poll, peek or remove
+     */
     int takeIndex;
 
-    /** items index for next put, offer, or add */
+    /**
+     * 记录下一个put、offer、add的索引
+     * items index for next put, offer, or add
+     */
     int putIndex;
 
-    /** Number of elements in the queue */
+    /**
+     * 队列中元素的个数
+     * Number of elements in the queue
+     */
     int count;
 
     /*
@@ -107,13 +118,22 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      * found in any textbook.
      */
 
-    /** Main lock guarding all access */
+    /**
+     * 数据访问的重入锁 用来保证多线程操作共享变量的安全问题
+     * Main lock guarding all access
+     */
     final ReentrantLock lock;
 
-    /** Condition for waiting takes */
+    /**
+     * 当队列为空时，就会调用notEmpty的wait方法，让当前线程等待
+     * Condition for waiting takes
+     */
     private final Condition notEmpty;
 
-    /** Condition for waiting puts */
+    /**
+     * 当队列为满时，就会调用notFull的wait方法，让当前线程等待
+     * Condition for waiting puts
+     */
     private final Condition notFull;
 
     /**
