@@ -581,12 +581,15 @@ public abstract class AbstractQueuedSynchronizer
      * @return node's predecessor
      */
     private Node enq(final Node node) {
+        // 死循环，多次尝试，直到成功添加为止
         for (;;) {
+            // 记录原尾节点
             Node t = tail;
+            // 原尾节点不存在，创建首尾节点都为 new Node()
             if (t == null) { // Must initialize
                 if (compareAndSetHead(new Node()))
                     tail = head;
-            } else {
+            } else { // 原尾节点存在，添加新节点为尾节点
                 node.prev = t;
                 if (compareAndSetTail(t, node)) {
                     t.next = node;
@@ -599,20 +602,28 @@ public abstract class AbstractQueuedSynchronizer
     /**
      * Creates and enqueues node for current thread and given mode.
      *
+     * mode 方法参数，传递获取同步状态的模式。
      * @param mode Node.EXCLUSIVE for exclusive, Node.SHARED for shared
      * @return the new node
      */
     private Node addWaiter(Node mode) {
+        // 新建节点
         Node node = new Node(Thread.currentThread(), mode);
         // Try the fast path of enq; backup to full enq on failure
+        // 记录原尾节点
         Node pred = tail;
+        // 快速尝试，添加新节点为尾节点
         if (pred != null) {
+            // 设置新 Node 节点的尾节点为原尾节点
             node.prev = pred;
+            // CAS 设置新的尾节点
             if (compareAndSetTail(pred, node)) {
+                // 成功，原尾节点的下一个节点为新节点
                 pred.next = node;
                 return node;
             }
         }
+        // 失败，多次尝试，直到成功
         enq(node);
         return node;
     }
@@ -789,7 +800,7 @@ public abstract class AbstractQueuedSynchronizer
      * control in all acquire loops.  Requires that pred == node.prev.
      *
      * @param pred node's predecessor holding status
-     * @param node the node
+     * @param no/de the node
      * @return {@code true} if thread should block
      */
     private static boolean shouldParkAfterFailedAcquire(Node pred, Node node) {
@@ -2030,18 +2041,29 @@ public abstract class AbstractQueuedSynchronizer
          * </ol>
          */
         public final void await() throws InterruptedException {
+            // 当前线程中断
             if (Thread.interrupted())
                 throw new InterruptedException();
+            // 当前线程加入等待队列
             Node node = addConditionWaiter();
+            // 释放锁
             int savedState = fullyRelease(node);
             int interruptMode = 0;
+            /**
+             * 检测此节点的线程是否在同步队列上，如果不在，则说明该线程还不具备竞争锁的资格，则继续等待
+             * 直到检测到此节点在同步队列上
+             */
             while (!isOnSyncQueue(node)) {
+                // 线程挂起
                 LockSupport.park(this);
+                // 如果已经中断了，则退出
                 if ((interruptMode = checkInterruptWhileWaiting(node)) != 0)
                     break;
             }
+            // 竞争同步状态
             if (acquireQueued(node, savedState) && interruptMode != THROW_IE)
                 interruptMode = REINTERRUPT;
+            // 清理下条件队列中的不是在等待条件的节点
             if (node.nextWaiter != null) // clean up if cancelled
                 unlinkCancelledWaiters();
             if (interruptMode != 0)

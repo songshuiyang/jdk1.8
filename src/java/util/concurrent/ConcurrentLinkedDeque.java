@@ -89,9 +89,7 @@ import java.util.function.Consumer;
  * @author Martin Buchholz
  * @param <E> the type of elements held in this collection
  */
-public class ConcurrentLinkedDeque<E>
-    extends AbstractCollection<E>
-    implements Deque<E>, java.io.Serializable {
+public class ConcurrentLinkedDeque<E> extends AbstractCollection<E> implements Deque<E>, java.io.Serializable {
 
     /*
      * This is an implementation of a concurrent lock-free deque
