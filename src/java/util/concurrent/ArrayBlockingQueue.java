@@ -96,13 +96,13 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E> implements BlockingQ
     final Object[] items;
 
     /**
-     * 记录下一个take、remove、peek的索引
+     * 记录下一个take、remove、peek出队的索引
      * items index for next take, poll, peek or remove
      */
     int takeIndex;
 
     /**
-     * 记录下一个put、offer、add的索引
+     * 记录下一个put、offer、add入队的索引
      * items index for next put, offer, or add
      */
     int putIndex;
@@ -178,10 +178,14 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E> implements BlockingQ
         // assert lock.getHoldCount() == 1;
         // assert items[putIndex] == null;
         final Object[] items = this.items;
+        // 赋值 putIndex默认为0
         items[putIndex] = x;
+        // 下一个入队的索引putIndex + 1
         if (++putIndex == items.length)
+            // 如果索引位置到了数组最后则归为0开始，循环入队列
             putIndex = 0;
         count++;
+        // 一旦插入一个元素后，将调用notEmpty.signal()，通知因为空而阻塞的线程重新执行，现在有数据了
         notEmpty.signal();
     }
 
@@ -194,13 +198,18 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E> implements BlockingQ
         // assert items[takeIndex] != null;
         final Object[] items = this.items;
         @SuppressWarnings("unchecked")
+        // 取走数据
         E x = (E) items[takeIndex];
+        // 元素赋null 以助GC
         items[takeIndex] = null;
+        // 下一个出队的索引takeIndex + 1
         if (++takeIndex == items.length)
+            // 如果索引位置到了数组最后则归为0开始，循环出队列
             takeIndex = 0;
         count--;
         if (itrs != null)
             itrs.elementDequeued();
+        // 现在有位子了，通知因队列满而阻塞的线程执行
         notFull.signal();
         return x;
     }
@@ -249,6 +258,8 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E> implements BlockingQ
     }
 
     /**
+     * 构造指定容量的数组，默认初始化ReentrantLock是非公平锁
+     *
      * Creates an {@code ArrayBlockingQueue} with the given (fixed)
      * capacity and default access policy.
      *
@@ -260,6 +271,8 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E> implements BlockingQ
     }
 
     /**
+     * 构造指定容量的数组，并可以指定ReentrantLock是公平锁还是非公平锁
+     *
      * Creates an {@code ArrayBlockingQueue} with the given (fixed)
      * capacity and the specified access policy.
      *
@@ -279,6 +292,8 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E> implements BlockingQ
     }
 
     /**
+     * 构造指定容量的数组，并可以指定ReentrantLock是公平锁还是非公平锁，并将已存在的集合数据赋值到这里
+     *
      * Creates an {@code ArrayBlockingQueue} with the given (fixed)
      * capacity, the specified access policy and initially containing the
      * elements of the given collection,
@@ -333,6 +348,8 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E> implements BlockingQ
     }
 
     /**
+     * 如果可以在不超过队列容量的情况下立即将其指定的元素插入该队列的尾部，如果成功时则返回 true，如果该队列已满则返回 false
+     *
      * Inserts the specified element at the tail of this queue if it is
      * possible to do so immediately without exceeding the queue's capacity,
      * returning {@code true} upon success and {@code false} if this queue
@@ -342,10 +359,13 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E> implements BlockingQ
      * @throws NullPointerException if the specified element is null
      */
     public boolean offer(E e) {
+        // 不允许插入null值
         checkNotNull(e);
         final ReentrantLock lock = this.lock;
+        // 首先对Lock加锁，然后再执行插入，所以当很多线程一起插入时，是线程安全的
         lock.lock();
         try {
+            // 满了就插不了
             if (count == items.length)
                 return false;
             else {
@@ -353,6 +373,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E> implements BlockingQ
                 return true;
             }
         } finally {
+            // 释放锁
             lock.unlock();
         }
     }
@@ -365,19 +386,26 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E> implements BlockingQ
      * @throws NullPointerException {@inheritDoc}
      */
     public void put(E e) throws InterruptedException {
+        // 不允许元素为null
         checkNotNull(e);
         final ReentrantLock lock = this.lock;
+        // 加锁
         lock.lockInterruptibly();
         try {
+            // 在队列已满时将会调用notFull的await()方法释放锁并处于阻塞状态
             while (count == items.length)
                 notFull.await();
+            // 不为满的状态，就将元素入队
             enqueue(e);
         } finally {
+            // 释放锁
             lock.unlock();
         }
     }
 
     /**
+     * 在该队列的尾部插入指定的元素，等待指定的等待时间，以使空间在队列已满时变为可用。
+     *
      * Inserts the specified element at the tail of this queue, waiting
      * up to the specified wait time for space to become available if
      * the queue is full.
@@ -409,6 +437,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E> implements BlockingQ
         final ReentrantLock lock = this.lock;
         lock.lock();
         try {
+            // 有数据的话调用dequeue() 否则是返回null
             return (count == 0) ? null : dequeue();
         } finally {
             lock.unlock();
@@ -417,12 +446,16 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E> implements BlockingQ
 
     public E take() throws InterruptedException {
         final ReentrantLock lock = this.lock;
+        // 首先加锁
         lock.lockInterruptibly();
         try {
+            // 如果队列为空，阻塞
             while (count == 0)
                 notEmpty.await();
+            // 队列不为空，调用dequeue()出队
             return dequeue();
         } finally {
+            // 释放锁
             lock.unlock();
         }
     }
