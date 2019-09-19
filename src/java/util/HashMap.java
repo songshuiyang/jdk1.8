@@ -36,6 +36,40 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
+ * 基于哈希表的实现的Map接口， 此实现提供了所有可选的地图操作，并允许null的值和null键
+ * 假设哈希函数在这些存储桶之间正确分散元素，这个实现为基本操作（ get和put ）提供了恒定的时间性能。
+ * 收集视图的迭代需要与HashMap实例（桶数）加上其大小（键值映射数）的“容量” 成正比 。 因此，如果迭
+ * 代性能很重要，不要将初始容量设置得太高（或负载因子太低）是非常重要的。
+ *
+ * HashMap的一个实例有两个影响其性能的参数： 初始容量和负载因子 。 容量是哈希表中的桶数，初始容量
+ * 只是创建哈希表时的容量。 负载因子是在容量自动增加之前允许哈希表得到满足的度量。 当在散列表中的
+ * 条目的数量超过了负载因数和电流容量的乘积，哈希表被重新散列 （即，内部数据结构被重建），使得哈希
+ * 表具有桶的大约两倍
+ *
+ * 作为一般规则，默认负载因子（.75）提供了时间和空间成本之间的良好折中。 更高的值会降低空间开销，
+ * 但会增加查找成本（反映在HashMap类的大部分操作中，包括get和put ）。 在设置其初始容量时，应考虑
+ * 地图中预期的条目数及其负载因子，以便最小化重新组播操作的数量。 如果初始容量大于最大条目数除以负
+ * 载因子，则不会发生重新排列操作。
+
+ * 如果许多映射要存储在HashMap实例中，则以足够大的容量创建映射将允许映射的存储效率高于使其根据需要
+ * 执行自动重新排序以增长表。 请注意，使用同一个hashCode()多个密钥是降低任何哈希表的hashCode()的
+ * 一种方法。 为了改善影响，当按键是Comparable时，这个类可以使用键之间的比较顺序来帮助打破关系。
+
+ * 请注意，此实现不同步。 如果多个线程同时访问哈希映射，并且至少有一个线程在结构上修改了映射，那么
+ * 它必须在外部进行同步。 （结构修改是添加或删除一个或多个映射的任何操作;仅改变与实例已经包含的密钥
+ * 相关联的值不是结构修改。）这通常通过对自然地封装映射的一些对象进行同步来实现。 如果没有这样的对象
+ * 存在，地图应该使用Collections.synchronizedMap方法“包装”。 这最好在创建时完成，以防止意外的不
+ * 同步访问地图：
+
+ * Map m = Collections.synchronizedMap(new HashMap(...));
+ * 所有这个类的“集合视图方法”返回的迭代器都是故障快速的 ：如果映射在迭代器创建之后的任何时间被结构地
+ * 修改，除了通过迭代器自己的remove方法之外，迭代器将抛出一个ConcurrentModificationException 。
+ * 因此，面对并发修改，迭代器将快速而干净地失败，而不是在未来未确定的时间冒着任意的非确定性行为。
+
+ * 请注意，迭代器的故障快速行为无法保证，因为一般来说，在不同步并发修改的情况下，无法做出任何硬性保证。
+ * 失败快速迭代器尽力扔掉ConcurrentModificationException 。 因此，编写依赖于此异常的程序的正确性
+ * 将是错误的：迭代器的故障快速行为应仅用于检测错误。
+ *
  * Hash table based implementation of the <tt>Map</tt> interface.  This
  * implementation provides all of the optional map operations, and permits
  * <tt>null</tt> values and the <tt>null</tt> key.  (The <tt>HashMap</tt>
@@ -229,11 +263,13 @@ public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneabl
      */
 
     /**
+     * 默认初始容量，为16个
      * The default initial capacity - MUST be a power of two.
      */
     static final int DEFAULT_INITIAL_CAPACITY = 1 << 4; // aka 16
 
     /**
+     * 最大容量： 1073741824
      * The maximum capacity, used if a higher value is implicitly specified
      * by either of the constructors with arguments.
      * MUST be a power of two <= 1<<30.
@@ -241,11 +277,15 @@ public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneabl
     static final int MAXIMUM_CAPACITY = 1 << 30;
 
     /**
+     * 加载因子，当容量达到3/4的时候进行容量扩容, 不是满的时候再扩容
      * The load factor used when none specified in constructor.
      */
     static final float DEFAULT_LOAD_FACTOR = 0.75f;
 
     /**
+     * 由链表转换成树的阈值TREEIFY_THRESHOLD 一个桶中bin（箱子）的存储方式由链表转换成树的阈值。
+     * 即当桶中bin的数量超过TREEIFY_THRESHOLD时使用树来代替链表。默认值是8
+     *
      * The bin count threshold for using a tree rather than list for a
      * bin.  Bins are converted to trees when adding an element to a
      * bin with at least this many nodes. The value must be greater
@@ -256,6 +296,8 @@ public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneabl
     static final int TREEIFY_THRESHOLD = 8;
 
     /**
+     * 当执行resize操作时，当桶中bin的数量少于UNTREEIFY_THRESHOLD时使用链表来代替树。默认值是6
+     *
      * The bin count threshold for untreeifying a (split) bin during a
      * resize operation. Should be less than TREEIFY_THRESHOLD, and at
      * most 6 to mesh with shrinkage detection under removal.
@@ -263,6 +305,9 @@ public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneabl
     static final int UNTREEIFY_THRESHOLD = 6;
 
     /**
+     * 当桶中的bin被树化时最小的hash表容量。（如果没有达到这个阈值，即hash表容量小于MIN_TREEIFY_CAPACITY，
+     * 当桶中bin的数量太多时会执行resize扩容操作）这个MIN_TREEIFY_CAPACITY的值至少是TREEIFY_THRESHOLD的4倍。
+     *
      * The smallest table capacity for which bins may be treeified.
      * (Otherwise the table is resized if too many nodes in a bin.)
      * Should be at least 4 * TREEIFY_THRESHOLD to avoid conflicts
@@ -270,14 +315,78 @@ public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneabl
      */
     static final int MIN_TREEIFY_CAPACITY = 64;
 
+        /* ---------------- Fields -------------- */
+
     /**
+     * 存放数据的数组
+     * The table, initialized on first use, and resized as
+     * necessary. When allocated, length is always a power of two.
+     * (We also tolerate length zero in some operations to allow
+     * bootstrapping mechanics that are currently not needed.)
+     */
+    transient Node<K,V>[] table;
+
+    /**
+     * entrySet 缓存
+     * Holds cached entrySet(). Note that AbstractMap fields are used
+     * for keySet() and values().
+     */
+    transient Set<Map.Entry<K,V>> entrySet;
+
+    /**
+     * HashMap中元素的数量
+     *
+     * The number of key-value mappings contained in this map.
+     */
+    transient int size;
+
+    /**
+     * 记录map被修改的次数
+     *
+     * The number of times this HashMap has been structurally modified
+     * Structural modifications are those that change the number of mappings in
+     * the HashMap or otherwise modify its internal structure (e.g.,
+     * rehash).  This field is used to make iterators on Collection-views of
+     * the HashMap fail-fast.  (See ConcurrentModificationException).
+     */
+    transient int modCount;
+
+    /**
+     * 要调整大小的下一个大小值（容量*加载因子）
+     *
+     * The next size value at which to resize (capacity * load factor).
+     *
+     * @serial
+     */
+    // (The javadoc description is true upon serialization.
+    // Additionally, if the table array has not been allocated, this
+    // field holds the initial array capacity, or zero signifying
+    // DEFAULT_INITIAL_CAPACITY.)
+    int threshold;
+
+    /**
+     * 加载因子
+     *
+     * The load factor for the hash table.
+     *
+     * @serial
+     */
+    final float loadFactor;
+
+    /**
+     * 元素节点 Node本质上是一个Map.存储着key-value
+     *
      * Basic hash bin node, used for most entries.  (See below for
      * TreeNode subclass, and in LinkedHashMap for its Entry subclass.)
      */
     static class Node<K,V> implements Map.Entry<K,V> {
+        // 保存该桶的hash值
         final int hash;
+        // 不可变的key
         final K key;
+        // value值
         V value;
+        // 指向一个数据的指针
         Node<K,V> next;
 
         Node(int hash, K key, V value, Node<K,V> next) {
@@ -313,6 +422,70 @@ public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneabl
             return false;
         }
     }
+
+    /**
+     * 构造一个空的 HashMap ，默认初始容量（16）和默认负载系数（0.75）。
+     *
+     * Constructs an empty <tt>HashMap</tt> with the default initial capacity
+     * (16) and the default load factor (0.75).
+     */
+    public HashMap() {
+        this.loadFactor = DEFAULT_LOAD_FACTOR; // all other fields defaulted
+    }
+
+    /**
+     * 构造一个空的 HashMap具有指定的初始容量和默认负载因子（0.75）。
+     *
+     * Constructs an empty <tt>HashMap</tt> with the specified initial
+     * capacity and the default load factor (0.75).
+     *
+     * @param  initialCapacity the initial capacity.
+     * @throws IllegalArgumentException if the initial capacity is negative.
+     */
+    public HashMap(int initialCapacity) {
+        this(initialCapacity, DEFAULT_LOAD_FACTOR);
+    }
+
+    /**
+     * 造一个空的 HashMap具有指定的初始容量和负载因子。
+     *
+     * Constructs an empty <tt>HashMap</tt> with the specified initial
+     * capacity and load factor.
+     *
+     * @param  initialCapacity the initial capacity
+     * @param  loadFactor      the load factor
+     * @throws IllegalArgumentException if the initial capacity is negative
+     *         or the load factor is nonpositive
+     */
+    public HashMap(int initialCapacity, float loadFactor) {
+        if (initialCapacity < 0)
+            throw new IllegalArgumentException("Illegal initial capacity: " +
+                    initialCapacity);
+        if (initialCapacity > MAXIMUM_CAPACITY)
+            initialCapacity = MAXIMUM_CAPACITY;
+        if (loadFactor <= 0 || Float.isNaN(loadFactor))
+            throw new IllegalArgumentException("Illegal load factor: " +
+                    loadFactor);
+        this.loadFactor = loadFactor;
+        this.threshold = tableSizeFor(initialCapacity);
+    }
+
+    /**
+     * 造一个新的 HashMap与指定的相同的映射 Map 。
+     *
+     * Constructs a new <tt>HashMap</tt> with the same mappings as the
+     * specified <tt>Map</tt>.  The <tt>HashMap</tt> is created with
+     * default load factor (0.75) and an initial capacity sufficient to
+     * hold the mappings in the specified <tt>Map</tt>.
+     *
+     * @param   m the map whose mappings are to be placed in this map
+     * @throws  NullPointerException if the specified map is null
+     */
+    public HashMap(Map<? extends K, ? extends V> m) {
+        this.loadFactor = DEFAULT_LOAD_FACTOR;
+        putMapEntries(m, false);
+    }
+
 
     /* ---------------- Static utilities -------------- */
 
@@ -383,110 +556,7 @@ public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneabl
         return (n < 0) ? 1 : (n >= MAXIMUM_CAPACITY) ? MAXIMUM_CAPACITY : n + 1;
     }
 
-    /* ---------------- Fields -------------- */
-
-    /**
-     * The table, initialized on first use, and resized as
-     * necessary. When allocated, length is always a power of two.
-     * (We also tolerate length zero in some operations to allow
-     * bootstrapping mechanics that are currently not needed.)
-     */
-    transient Node<K,V>[] table;
-
-    /**
-     * Holds cached entrySet(). Note that AbstractMap fields are used
-     * for keySet() and values().
-     */
-    transient Set<Map.Entry<K,V>> entrySet;
-
-    /**
-     * The number of key-value mappings contained in this map.
-     */
-    transient int size;
-
-    /**
-     * The number of times this HashMap has been structurally modified
-     * Structural modifications are those that change the number of mappings in
-     * the HashMap or otherwise modify its internal structure (e.g.,
-     * rehash).  This field is used to make iterators on Collection-views of
-     * the HashMap fail-fast.  (See ConcurrentModificationException).
-     */
-    transient int modCount;
-
-    /**
-     * The next size value at which to resize (capacity * load factor).
-     *
-     * @serial
-     */
-    // (The javadoc description is true upon serialization.
-    // Additionally, if the table array has not been allocated, this
-    // field holds the initial array capacity, or zero signifying
-    // DEFAULT_INITIAL_CAPACITY.)
-    int threshold;
-
-    /**
-     * The load factor for the hash table.
-     *
-     * @serial
-     */
-    final float loadFactor;
-
     /* ---------------- Public operations -------------- */
-
-    /**
-     * Constructs an empty <tt>HashMap</tt> with the specified initial
-     * capacity and load factor.
-     *
-     * @param  initialCapacity the initial capacity
-     * @param  loadFactor      the load factor
-     * @throws IllegalArgumentException if the initial capacity is negative
-     *         or the load factor is nonpositive
-     */
-    public HashMap(int initialCapacity, float loadFactor) {
-        if (initialCapacity < 0)
-            throw new IllegalArgumentException("Illegal initial capacity: " +
-                                               initialCapacity);
-        if (initialCapacity > MAXIMUM_CAPACITY)
-            initialCapacity = MAXIMUM_CAPACITY;
-        if (loadFactor <= 0 || Float.isNaN(loadFactor))
-            throw new IllegalArgumentException("Illegal load factor: " +
-                                               loadFactor);
-        this.loadFactor = loadFactor;
-        this.threshold = tableSizeFor(initialCapacity);
-    }
-
-    /**
-     * Constructs an empty <tt>HashMap</tt> with the specified initial
-     * capacity and the default load factor (0.75).
-     *
-     * @param  initialCapacity the initial capacity.
-     * @throws IllegalArgumentException if the initial capacity is negative.
-     */
-    public HashMap(int initialCapacity) {
-        this(initialCapacity, DEFAULT_LOAD_FACTOR);
-    }
-
-    /**
-     * Constructs an empty <tt>HashMap</tt> with the default initial capacity
-     * (16) and the default load factor (0.75).
-     */
-    public HashMap() {
-        this.loadFactor = DEFAULT_LOAD_FACTOR; // all other fields defaulted
-    }
-
-    /**
-     * Constructs a new <tt>HashMap</tt> with the same mappings as the
-     * specified <tt>Map</tt>.  The <tt>HashMap</tt> is created with
-     * default load factor (0.75) and an initial capacity sufficient to
-     * hold the mappings in the specified <tt>Map</tt>.
-     *
-     * @param   m the map whose mappings are to be placed in this map
-     * @throws  NullPointerException if the specified map is null
-     */
-    public HashMap(Map<? extends K, ? extends V> m) {
-        this.loadFactor = DEFAULT_LOAD_FACTOR;
-        putMapEntries(m, false);
-    }
 
     /**
      * Implements Map.putAll and Map constructor
