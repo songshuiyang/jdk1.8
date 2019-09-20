@@ -490,6 +490,8 @@ public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneabl
     /* ---------------- Static utilities -------------- */
 
     /**
+     * 而key的hash值，并不仅仅只是key对象的hashCode()方法的返回值，还会经过扰动函数的扰动，以使hash值更加均衡。
+     *
      * Computes key.hashCode() and spreads (XORs) higher bits of hash
      * to lower.  Because the table uses power-of-two masking, sets of
      * hashes that vary only in bits above the current mask will
@@ -686,48 +688,64 @@ public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneabl
      * @param hash hash for key
      * @param key the key
      * @param value the value to put
-     * @param onlyIfAbsent if true, don't change existing value
-     * @param evict if false, the table is in creation mode.
+     * @param onlyIfAbsent if true, don't change existing value 如果true，则不会更改现有值
+     * @param evict if false, the table is in creation mode. 如果true 则数组是创建模式
      * @return previous value, or null if none
      */
     final V putVal(int hash, K key, V value, boolean onlyIfAbsent,
                    boolean evict) {
+        // tab存放 当前的哈希桶， p用作临时链表节点
         Node<K,V>[] tab; Node<K,V> p; int n, i;
+        // 如果当前哈希表是空的，代表是初始化
         if ((tab = table) == null || (n = tab.length) == 0)
+            // 那么直接去扩容哈希表，并且将扩容后的哈希桶长度赋值给n
             n = (tab = resize()).length;
-        if ((p = tab[i = (n - 1) & hash]) == null)
+        // 获取要插入元素在 哈希桶中的位置
+        if ((p = tab[i = (n - 1) & hash]) == null) // 如果这个位置没有Node
+            // 如果当前index的节点是空的，表示没有发生哈希碰撞。 直接构建一个新节点Node，挂载在index处即可。
             tab[i] = newNode(hash, key, value, null);
-        else {
+        else { // 说明此时在对应的索引位置已经有对象了，发生哈希冲突
             Node<K,V> e; K k;
+            // 如果哈希值相等，key也相等，则是覆盖value操作
             if (p.hash == hash &&
-                ((k = p.key) == key || (key != null && key.equals(k))))
+                    ((k = p.key) == key || (key != null && key.equals(k))))
+                // 将当前节点引用赋值给e
                 e = p;
-            else if (p instanceof TreeNode)
-                e = ((TreeNode<K,V>)p).putTreeVal(this, tab, hash, key, value);
-            else {
+            else if (p instanceof TreeNode) // 如果 你定位到的元素是一个TreeNode(Node的一个子类，也是HashMap的一个内部类)
+                e = ((TreeNode<K,V>)p).putTreeVal(this, tab, hash, key, value); // 那么就插入一TreeNode节点 定位到这个hash桶了 但是这里面是链表（没有进行过树化）
+            else { // 不是覆盖操作，则插入一个普通链表节点
+                // 遍历链表
                 for (int binCount = 0; ; ++binCount) {
-                    if ((e = p.next) == null) {
+                    if ((e = p.next) == null) { // 遍历到尾部，追加新节点到尾部
                         p.next = newNode(hash, key, value, null);
+                        // 追加节点后，如果链表长度超过8转成红黑树
                         if (binCount >= TREEIFY_THRESHOLD - 1) // -1 for 1st
                             treeifyBin(tab, hash);
                         break;
                     }
+                    // 如果找到了要覆盖的节点
                     if (e.hash == hash &&
-                        ((k = e.key) == key || (key != null && key.equals(k))))
+                            ((k = e.key) == key || (key != null && key.equals(k))))
                         break;
                     p = e;
                 }
             }
-            if (e != null) { // existing mapping for key
+            // 如果e不是null，原对象与插入的对象的key相同，说明有需要覆盖的节点
+            if (e != null) {
+                // 则覆盖节点值，并返回原oldValue
                 V oldValue = e.value;
                 if (!onlyIfAbsent || oldValue == null)
-                    e.value = value;
+                    e.value = value; //将新插入的entry的value覆盖掉原来的entry的value
+                // 这是一个空实现的函数，用作LinkedHashMap重写使用。
                 afterNodeAccess(e);
                 return oldValue;
             }
         }
+        // 如果执行到了这里，说明插入了一个新的节点，所以会修改modCount，以及返回null，和fastRemove()有关也和并发修改有关
         ++modCount;
+        // 如果大于了阙值 需要扩容的大小
         if (++size > threshold)
+            // 重新设置hash桶的大小，也有可能进行树化
             resize();
         afterNodeInsertion(evict);
         return null;
@@ -743,49 +761,79 @@ public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneabl
      * @return the table
      */
     final Node<K,V>[] resize() {
+        // 老数组
         Node<K,V>[] oldTab = table;
+        // 老数组长度
         int oldCap = (oldTab == null) ? 0 : oldTab.length;
+        // 老阈值
         int oldThr = threshold;
+        // 新数组长度先初始为0，新阈值先初始为0
         int newCap, newThr = 0;
+        // 老数组已初始化
         if (oldCap > 0) {
+            // 老数组长度超出最大容量，则老阈值取值为Integer.MAX_VALUE，这里直接返回老数组，不再扩容
             if (oldCap >= MAXIMUM_CAPACITY) {
                 threshold = Integer.MAX_VALUE;
+                // 这里直接返回老数组，不再扩容
                 return oldTab;
             }
+            // 否则新数组容量为旧数组容量的两倍
             else if ((newCap = oldCap << 1) < MAXIMUM_CAPACITY &&
-                     oldCap >= DEFAULT_INITIAL_CAPACITY)
+                     oldCap >= DEFAULT_INITIAL_CAPACITY) // 如果旧的容量大于等于默认初始容量16
+                // 那么新的阈值也等于旧的阈值的两倍
                 newThr = oldThr << 1; // double threshold
-        }
-        else if (oldThr > 0) // initial capacity was placed in threshold
+        } else if (oldThr > 0) // 如果当前表是空的，但是有阈值。代表是初始化时指定了容量、阈值的情况 initial capacity was placed in threshold
+            // 那么新表的容量就等于旧的阈值
             newCap = oldThr;
-        else {               // zero initial threshold signifies using defaults
+        else {  // 如果当前表是空的，而且也没有阈值。代表是初始化时没有任何容量/阈值参数的情况 zero initial threshold signifies using defaults
+            // 默认初始容量为16
             newCap = DEFAULT_INITIAL_CAPACITY;
+            // 新阈值 = 容量 * 加载因子(12 = 16 * 0.75)
             newThr = (int)(DEFAULT_LOAD_FACTOR * DEFAULT_INITIAL_CAPACITY);
         }
-        if (newThr == 0) {
+        if (newThr == 0) { // 如果新的阈值是0，对应的是  当前表是空的，但是有阈值的情况
+            // 根据新表容量 和 加载因子 求出新的阈值
             float ft = (float)newCap * loadFactor;
             newThr = (newCap < MAXIMUM_CAPACITY && ft < (float)MAXIMUM_CAPACITY ?
                       (int)ft : Integer.MAX_VALUE);
         }
+        // 更新阈值
         threshold = newThr;
+        // 构建新数组直接赋值
         @SuppressWarnings({"rawtypes","unchecked"})
             Node<K,V>[] newTab = (Node<K,V>[])new Node[newCap];
         table = newTab;
+        // 下面开始新老王朝更替了
         if (oldTab != null) {
+            // for循环老数组
             for (int j = 0; j < oldCap; ++j) {
                 Node<K,V> e;
+                // 如果数组节点有元素,则将链表赋值给e
                 if ((e = oldTab[j]) != null) {
+                    // 将原哈希桶置空以便GC
                     oldTab[j] = null;
+                    // 如果当前链表中就一个元素，（没有发生哈希碰撞）
                     if (e.next == null)
+                        /**
+                         * 直接将这个元素放置在新的哈希桶里
+                         * 注意这里取下标 是用 哈希值 与 桶的长度-1 。 由于桶的长度是2的n次方，这么做其实是等于 一个模运算。但是效率更高
+                         * 位与运算符（&）: 两个数都转为二进制，然后从高位开始比较，如果两个数都为1则为1，否则为0。
+                         */
                         newTab[e.hash & (newCap - 1)] = e;
-                    else if (e instanceof TreeNode)
+                    else if (e instanceof TreeNode) // 元素是红黑树节点
                         ((TreeNode<K,V>)e).split(this, newTab, j, oldCap);
                     else { // preserve order
+                        // 因为扩容是容量翻倍，所以原链表上的每个节点，现在可能存放在原来的下标，即low位， 或者扩容后的下标，即high位。 high位=  low位+原哈希桶容量
+                        // 低位链表的头结点、尾节点
                         Node<K,V> loHead = null, loTail = null;
+                        // 高位链表的头节点、尾节点
                         Node<K,V> hiHead = null, hiTail = null;
+                        // 临时节点 存放e的下一个节点
                         Node<K,V> next;
                         do {
                             next = e.next;
+                            // 这里又是一个利用位运算 代替常规运算的高效点： 利用哈希值 与 旧的容量，可以得到哈希值去模后，是大于等于oldCap还是小于oldCap，
+                            // 等于0代表小于oldCap，应该存放在低位，否则存放在高位
                             if ((e.hash & oldCap) == 0) {
                                 if (loTail == null)
                                     loHead = e;
@@ -801,10 +849,12 @@ public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneabl
                                 hiTail = e;
                             }
                         } while ((e = next) != null);
+                        // 将低位链表存放在原index处
                         if (loTail != null) {
                             loTail.next = null;
                             newTab[j] = loHead;
                         }
+                        // 将高位链表存放在新index处
                         if (hiTail != null) {
                             hiTail.next = null;
                             newTab[j + oldCap] = hiHead;
@@ -864,6 +914,7 @@ public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneabl
      */
     public V remove(Object key) {
         Node<K,V> e;
+        // 如果key对应的value存在，则删除这个键值对。 并返回value。如果不存在 返回null。
         return (e = removeNode(hash(key), key, null, false, true)) == null ?
             null : e.value;
     }
@@ -880,14 +931,19 @@ public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneabl
      */
     final Node<K,V> removeNode(int hash, Object key, Object value,
                                boolean matchValue, boolean movable) {
+        // tab指向数组 p是待删除节点的前置节点 n是哈希桶的大小 index是hash值算出的数组下标
         Node<K,V>[] tab; Node<K,V> p; int n, index;
+        // 如果哈希表不为空，则根据hash值算出的index下 有节点的话。
         if ((tab = table) != null && (n = tab.length) > 0 &&
             (p = tab[index = (n - 1) & hash]) != null) {
+            // node是待删除节点
             Node<K,V> node = null, e; K k; V v;
+            // 如果链表头的就是需要删除的节点
             if (p.hash == hash &&
                 ((k = p.key) == key || (key != null && key.equals(k))))
+                // 将待删除节点引用赋给node
                 node = p;
-            else if ((e = p.next) != null) {
+            else if ((e = p.next) != null) { // 否则循环遍历 找到待删除节点，赋值给node
                 if (p instanceof TreeNode)
                     node = ((TreeNode<K,V>)p).getTreeNode(hash, key);
                 else {
@@ -902,13 +958,14 @@ public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneabl
                     } while ((e = e.next) != null);
                 }
             }
+            // 如果有待删除节点node，  且 matchValue为false，或者值也相等
             if (node != null && (!matchValue || (v = node.value) == value ||
                                  (value != null && value.equals(v)))) {
                 if (node instanceof TreeNode)
                     ((TreeNode<K,V>)node).removeTreeNode(this, tab, movable);
-                else if (node == p)
+                else if (node == p) // 如果node ==  p，说明是链表头是待删除节点
                     tab[index] = node.next;
-                else
+                else // 否则待删除节点在表中间
                     p.next = node.next;
                 ++modCount;
                 --size;
@@ -1861,6 +1918,7 @@ public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneabl
     // Tree bins
 
     /**
+     * 树节点
      * Entry for Tree bins. Extends LinkedHashMap.Entry (which in turn
      * extends Node) so can be used as extension of either regular or
      * linked node.
