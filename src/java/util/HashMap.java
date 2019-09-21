@@ -635,18 +635,29 @@ public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneabl
      * @return the node, or null if none
      */
     final Node<K,V> getNode(int hash, Object key) {
+        /**
+         * tab 指向哈希表
+         * first node为在数组中的元素，这个元素是根据哈希值算出索引并定位在数组的元素，这个不一定是我们要的元素，因为有哈希碰撞的情况
+         * e node是发生了哈希碰撞情况并在链表里找出的元素
+         * n 是数组元素大小，计算元素在数组中的位置要用
+         * key变量是键值
+         */
         Node<K,V>[] tab; Node<K,V> first, e; int n; K k;
-        if ((tab = table) != null && (n = tab.length) > 0 &&
-            (first = tab[(n - 1) & hash]) != null) {
-            if (first.hash == hash && // always check first node
-                ((k = first.key) == key || (key != null && key.equals(k))))
+        // 1、哈希表不为空 2、哈希表长度不为零 3、根据哈希值算出数组索引并定位在数组的元素不为null
+        if ((tab = table) != null && (n = tab.length) > 0 && (first = tab[(n - 1) & hash]) != null) {
+            // always check first node
+            // 在数组中的元素 各种元素比较，注意这里执行了key.equals(k)方法，哈哈哈，看到这里就可以理解为什么重写了hashCode()方法需要重写equals方法
+            if (first.hash == hash && ((k = first.key) == key || (key != null && key.equals(k))))
+                // 各种比较通过之后，那么这个元素就是我们要的元素
                 return first;
+            // 上面数组位置的元素并不是我们要的数据，说明发生了哈希碰撞，需要遍历链表来获取
             if ((e = first.next) != null) {
                 if (first instanceof TreeNode)
+                    // 在红黑数中找到了我们的元素
                     return ((TreeNode<K,V>)first).getTreeNode(hash, key);
                 do {
-                    if (e.hash == hash &&
-                        ((k = e.key) == key || (key != null && key.equals(k))))
+                    if (e.hash == hash && ((k = e.key) == key || (key != null && key.equals(k))))
+                        // 在链表里找到了元素
                         return e;
                 } while ((e = e.next) != null);
             }
@@ -688,44 +699,42 @@ public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneabl
      * @param hash hash for key
      * @param key the key
      * @param value the value to put
-     * @param onlyIfAbsent if true, don't change existing value 如果true，则不会更改现有值
-     * @param evict if false, the table is in creation mode. 如果true 则数组是创建模式
+     * @param onlyIfAbsent if true, don't change existing value 如果插入`key`键相同的元素则不会更改`value`值
+     * @param evict if false, the table is in creation mode. 如果true 则数组是创建模式 为了继承HashMap的LinkedHashMap类服务的。
      * @return previous value, or null if none
      */
-    final V putVal(int hash, K key, V value, boolean onlyIfAbsent,
-                   boolean evict) {
-        // tab存放 当前的哈希桶， p用作临时链表节点
+    final V putVal(int hash, K key, V value, boolean onlyIfAbsent, boolean evict) {
+        // tab存放 当前的哈希桶， p用作临时链表节点，n是数组大小，i是插入元素在哈希桶数组中的位置
         Node<K,V>[] tab; Node<K,V> p; int n, i;
         // 如果当前哈希表是空的，代表是初始化
         if ((tab = table) == null || (n = tab.length) == 0)
             // 那么直接去扩容哈希表，并且将扩容后的哈希桶长度赋值给n
             n = (tab = resize()).length;
         // 获取要插入元素在 哈希桶中的位置
-        if ((p = tab[i = (n - 1) & hash]) == null) // 如果这个位置没有Node
-            // 如果当前index的节点是空的，表示没有发生哈希碰撞。 直接构建一个新节点Node，挂载在index处即可。
+        if ((p = tab[i = (n - 1) & hash]) == null) // 说明此时在对应的索引位置没有对象，没有发生哈希冲突
+            // 如果当前index的节点是空的， 直接构建一个新节点Node，挂载在index处即可
             tab[i] = newNode(hash, key, value, null);
         else { // 说明此时在对应的索引位置已经有对象了，发生哈希冲突
             Node<K,V> e; K k;
             // 如果哈希值相等，key也相等，则是覆盖value操作
-            if (p.hash == hash &&
-                    ((k = p.key) == key || (key != null && key.equals(k))))
+            if (p.hash == hash && ((k = p.key) == key || (key != null && key.equals(k))))
                 // 将当前节点引用赋值给e
                 e = p;
-            else if (p instanceof TreeNode) // 如果 你定位到的元素是一个TreeNode(Node的一个子类，也是HashMap的一个内部类)
-                e = ((TreeNode<K,V>)p).putTreeVal(this, tab, hash, key, value); // 那么就插入一TreeNode节点 定位到这个hash桶了 但是这里面是链表（没有进行过树化）
+            else if (p instanceof TreeNode) // 如果定位到的元素是一个TreeNode(Node的一个子类，也是HashMap的一个内部类)
+                // 那么就插入一TreeNode节点 定位到这个hash桶了 但是这里面是链表（没有进行过树化）
+                e = ((TreeNode<K,V>)p).putTreeVal(this, tab, hash, key, value);
             else { // 不是覆盖操作，则插入一个普通链表节点
                 // 遍历链表
                 for (int binCount = 0; ; ++binCount) {
                     if ((e = p.next) == null) { // 遍历到尾部，追加新节点到尾部
                         p.next = newNode(hash, key, value, null);
-                        // 追加节点后，如果链表长度超过8转成红黑树
+                        // 追加节点后，判断如果当前bucket的位置链表长度大于8的话就将此链表变成红黑树。
                         if (binCount >= TREEIFY_THRESHOLD - 1) // -1 for 1st
                             treeifyBin(tab, hash);
                         break;
                     }
                     // 如果找到了要覆盖的节点
-                    if (e.hash == hash &&
-                            ((k = e.key) == key || (key != null && key.equals(k))))
+                    if (e.hash == hash && ((k = e.key) == key || (key != null && key.equals(k))))
                         break;
                     p = e;
                 }
@@ -735,7 +744,8 @@ public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneabl
                 // 则覆盖节点值，并返回原oldValue
                 V oldValue = e.value;
                 if (!onlyIfAbsent || oldValue == null)
-                    e.value = value; //将新插入的entry的value覆盖掉原来的entry的value
+                    // 将新插入的entry的value覆盖掉原来的entry的value
+                    e.value = value;
                 // 这是一个空实现的函数，用作LinkedHashMap重写使用。
                 afterNodeAccess(e);
                 return oldValue;
@@ -743,10 +753,11 @@ public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneabl
         }
         // 如果执行到了这里，说明插入了一个新的节点，所以会修改modCount，以及返回null，和fastRemove()有关也和并发修改有关
         ++modCount;
-        // 如果大于了阙值 需要扩容的大小
+        // 如果HashMap中元素的数量大于了阙值，则需要扩容哈希表
         if (++size > threshold)
             // 重新设置hash桶的大小，也有可能进行树化
             resize();
+        // 为了继承HashMap的LinkedHashMap类服务的。
         afterNodeInsertion(evict);
         return null;
     }
@@ -1896,6 +1907,7 @@ public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneabl
         size = 0;
     }
 
+    // 为LinkedHashMap服务
     // Callbacks to allow LinkedHashMap post-actions
     void afterNodeAccess(Node<K,V> p) { }
     void afterNodeInsertion(boolean evict) { }
