@@ -31,6 +31,9 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 
 /**
+ * 一个红黑树基于NavigableMap实现
+ *
+ *
  * A Red-Black tree based {@link NavigableMap} implementation.
  * The map is sorted according to the {@linkplain Comparable natural
  * ordering} of its keys, or by a {@link Comparator} provided at map
@@ -108,29 +111,130 @@ import java.util.function.Consumer;
  * @since 1.2
  */
 
-public class TreeMap<K,V>
-    extends AbstractMap<K,V>
-    implements NavigableMap<K,V>, Cloneable, java.io.Serializable
-{
+public class TreeMap<K,V> extends AbstractMap<K,V> implements NavigableMap<K,V>, Cloneable, java.io.Serializable {
+
+    private static final long serialVersionUID = 919286545866124006L;
     /**
+     * 比较器，是自然排序，还是定制排序 ，使用final修饰，表明一旦赋值便不允许改变
      * The comparator used to maintain order in this tree map, or
      * null if it uses the natural ordering of its keys.
      *
      * @serial
      */
     private final Comparator<? super K> comparator;
-
+    /**
+     * 红黑树的根节点
+     */
     private transient Entry<K,V> root;
 
     /**
+     * TreeMap中存放的键值对的数量
      * The number of entries in the tree
      */
     private transient int size = 0;
 
     /**
+     * 修改的次数
      * The number of structural modifications to the tree.
      */
     private transient int modCount = 0;
+
+
+    /**
+     * Fields initialized to contain an instance of the entry set view
+     * the first time this view is requested.  Views are stateless, so
+     * there's no reason to create more than one.
+     */
+    private transient EntrySet entrySet;
+    private transient KeySet<K> navigableKeySet;
+    private transient NavigableMap<K,V> descendingMap;
+
+    // SubMaps
+
+    /**
+     * Dummy value serving as unmatchable fence key for unbounded
+     * SubMapIterators
+     */
+    private static final Object UNBOUNDED = new Object();
+
+
+    // Red-black mechanics
+    private static final boolean RED   = false;
+    private static final boolean BLACK = true;
+
+    /**
+     * 红黑树节点
+     * Node in the Tree.  Doubles as a means to pass key-value pairs back to
+     * user (see Map.Entry).
+     */
+
+    static final class Entry<K,V> implements Map.Entry<K,V> {
+        K key;
+        V value;
+        Entry<K,V> left;
+        Entry<K,V> right;
+        Entry<K,V> parent;
+        boolean color = BLACK;
+
+        /**
+         * Make a new cell with given key, value, and parent, and with
+         * {@code null} child links, and BLACK color.
+         */
+        Entry(K key, V value, Entry<K,V> parent) {
+            this.key = key;
+            this.value = value;
+            this.parent = parent;
+        }
+
+        /**
+         * Returns the key.
+         *
+         * @return the key
+         */
+        public K getKey() {
+            return key;
+        }
+
+        /**
+         * Returns the value associated with the key.
+         *
+         * @return the value associated with the key
+         */
+        public V getValue() {
+            return value;
+        }
+
+        /**
+         * Replaces the value currently associated with the key with the given
+         * value.
+         *
+         * @return the value associated with the key before this method was
+         *         called
+         */
+        public V setValue(V value) {
+            V oldValue = this.value;
+            this.value = value;
+            return oldValue;
+        }
+
+        public boolean equals(Object o) {
+            if (!(o instanceof Map.Entry))
+                return false;
+            Map.Entry<?,?> e = (Map.Entry<?,?>)o;
+
+            return valEquals(key,e.getKey()) && valEquals(value,e.getValue());
+        }
+
+        public int hashCode() {
+            int keyHash = (key==null ? 0 : key.hashCode());
+            int valueHash = (value==null ? 0 : value.hashCode());
+            return keyHash ^ valueHash;
+        }
+
+        public String toString() {
+            return key + "=" + value;
+        }
+    }
 
     /**
      * Constructs a new, empty tree map, using the natural ordering of its
@@ -340,6 +444,7 @@ public class TreeMap<K,V>
      *         does not permit null keys
      */
     final Entry<K,V> getEntry(Object key) {
+        // 使用Comparator比较器规则来获取元素值
         // Offload comparator-based version for sake of performance
         if (comparator != null)
             return getEntryUsingComparator(key);
@@ -347,13 +452,14 @@ public class TreeMap<K,V>
             throw new NullPointerException();
         @SuppressWarnings("unchecked")
             Comparable<? super K> k = (Comparable<? super K>) key;
+        // 从根节点开始遍历
         Entry<K,V> p = root;
         while (p != null) {
             int cmp = k.compareTo(p.key);
             if (cmp < 0)
-                p = p.left;
+                p = p.left; // 在左子树查找
             else if (cmp > 0)
-                p = p.right;
+                p = p.right; // 右子树查找
             else
                 return p;
         }
@@ -533,10 +639,12 @@ public class TreeMap<K,V>
      *         does not permit null keys
      */
     public V put(K key, V value) {
+        // 红黑树的根节点
         Entry<K,V> t = root;
+        // 第一次插入所以红黑树的根节点为null
         if (t == null) {
             compare(key, key); // type (and possibly null) check
-
+            // 构造根节点，因为根节点没有父节点，传入null值。
             root = new Entry<>(key, value, null);
             size = 1;
             modCount++;
@@ -546,39 +654,44 @@ public class TreeMap<K,V>
         Entry<K,V> parent;
         // split comparator and comparable paths
         Comparator<? super K> cpr = comparator;
+        // 按Comparator排序规则来插入
         if (cpr != null) {
             do {
                 parent = t;
                 cmp = cpr.compare(key, t.key);
-                if (cmp < 0)
+                if (cmp < 0) // 指向左子树
                     t = t.left;
-                else if (cmp > 0)
+                else if (cmp > 0) // 指向右子树
                     t = t.right;
                 else
                     return t.setValue(value);
             } while (t != null);
         }
-        else {
-            if (key == null)
+        else { // 按元素Comparable排序规则来插入
+            if (key == null) // 不允许插入null值
                 throw new NullPointerException();
+            // 如果元素没有实现Comparable接口会报错
             @SuppressWarnings("unchecked")
                 Comparable<? super K> k = (Comparable<? super K>) key;
             do {
                 parent = t;
                 cmp = k.compareTo(t.key);
-                if (cmp < 0)
+                if (cmp < 0)  // 指向左子树
                     t = t.left;
-                else if (cmp > 0)
+                else if (cmp > 0) // 指向右子树
                     t = t.right;
                 else
                     return t.setValue(value);
             } while (t != null);
         }
+        // 创建新节点，并制定父节点
         Entry<K,V> e = new Entry<>(key, value, parent);
+        // 根据比较结果，决定新节点为父节点的左孩子或者右孩子
         if (cmp < 0)
             parent.left = e;
         else
             parent.right = e;
+        // 新插入节点后重新调整红黑树
         fixAfterInsertion(e);
         size++;
         modCount++;
@@ -779,14 +892,6 @@ public class TreeMap<K,V>
 
     // Views
 
-    /**
-     * Fields initialized to contain an instance of the entry set view
-     * the first time this view is requested.  Views are stateless, so
-     * there's no reason to create more than one.
-     */
-    private transient EntrySet entrySet;
-    private transient KeySet<K> navigableKeySet;
-    private transient NavigableMap<K,V> descendingMap;
 
     /**
      * Returns a {@link Set} view of the keys contained in this map.
@@ -1329,13 +1434,7 @@ public class TreeMap<K,V>
     }
 
 
-    // SubMaps
 
-    /**
-     * Dummy value serving as unmatchable fence key for unbounded
-     * SubMapIterators
-     */
-    private static final Object UNBOUNDED = new Object();
 
     /**
      * @serial include
@@ -2039,85 +2138,6 @@ public class TreeMap<K,V>
         public Comparator<? super K> comparator() { throw new InternalError(); }
     }
 
-
-    // Red-black mechanics
-
-    private static final boolean RED   = false;
-    private static final boolean BLACK = true;
-
-    /**
-     * Node in the Tree.  Doubles as a means to pass key-value pairs back to
-     * user (see Map.Entry).
-     */
-
-    static final class Entry<K,V> implements Map.Entry<K,V> {
-        K key;
-        V value;
-        Entry<K,V> left;
-        Entry<K,V> right;
-        Entry<K,V> parent;
-        boolean color = BLACK;
-
-        /**
-         * Make a new cell with given key, value, and parent, and with
-         * {@code null} child links, and BLACK color.
-         */
-        Entry(K key, V value, Entry<K,V> parent) {
-            this.key = key;
-            this.value = value;
-            this.parent = parent;
-        }
-
-        /**
-         * Returns the key.
-         *
-         * @return the key
-         */
-        public K getKey() {
-            return key;
-        }
-
-        /**
-         * Returns the value associated with the key.
-         *
-         * @return the value associated with the key
-         */
-        public V getValue() {
-            return value;
-        }
-
-        /**
-         * Replaces the value currently associated with the key with the given
-         * value.
-         *
-         * @return the value associated with the key before this method was
-         *         called
-         */
-        public V setValue(V value) {
-            V oldValue = this.value;
-            this.value = value;
-            return oldValue;
-        }
-
-        public boolean equals(Object o) {
-            if (!(o instanceof Map.Entry))
-                return false;
-            Map.Entry<?,?> e = (Map.Entry<?,?>)o;
-
-            return valEquals(key,e.getKey()) && valEquals(value,e.getValue());
-        }
-
-        public int hashCode() {
-            int keyHash = (key==null ? 0 : key.hashCode());
-            int valueHash = (value==null ? 0 : value.hashCode());
-            return keyHash ^ valueHash;
-        }
-
-        public String toString() {
-            return key + "=" + value;
-        }
-    }
-
     /**
      * Returns the first Entry in the TreeMap (according to the TreeMap's
      * key-sort function).  Returns null if the TreeMap is empty.
@@ -2408,8 +2428,6 @@ public class TreeMap<K,V>
 
         setColor(x, BLACK);
     }
-
-    private static final long serialVersionUID = 919286545866124006L;
 
     /**
      * Save the state of the {@code TreeMap} instance to a stream (i.e.,

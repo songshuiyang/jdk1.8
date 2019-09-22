@@ -160,10 +160,7 @@ import java.io.IOException;
  * @see     Hashtable
  * @since   1.4
  */
-public class LinkedHashMap<K,V>
-    extends HashMap<K,V>
-    implements Map<K,V>
-{
+public class LinkedHashMap<K,V> extends HashMap<K,V> implements Map<K,V> {
 
     /*
      * Implementation note.  A previous version of this class was
@@ -187,6 +184,7 @@ public class LinkedHashMap<K,V>
      */
 
     /**
+     * 键值对节点
      * HashMap.Node subclass for normal LinkedHashMap entries.
      */
     static class Entry<K,V> extends HashMap.Node<K,V> {
@@ -199,16 +197,21 @@ public class LinkedHashMap<K,V>
     private static final long serialVersionUID = 3801124242820219131L;
 
     /**
+     * 双向链表的头结点
      * The head (eldest) of the doubly linked list.
      */
     transient LinkedHashMap.Entry<K,V> head;
 
     /**
+     * 双向链表的尾节点
      * The tail (youngest) of the doubly linked list.
      */
     transient LinkedHashMap.Entry<K,V> tail;
 
     /**
+     * 按插入顺序维护链表 false
+     * 按访问顺序维护链表 true
+     *
      * The iteration ordering method for this linked hash map: <tt>true</tt>
      * for access-order, <tt>false</tt> for insertion-order.
      *
@@ -216,15 +219,92 @@ public class LinkedHashMap<K,V>
      */
     final boolean accessOrder;
 
+
+    /**
+     * 调用HashMap构造函数构造具有默认初始容量（16）和负载因子（0.75）的 LinkedHashMap实例。
+     * Constructs an empty insertion-ordered <tt>LinkedHashMap</tt> instance
+     * with the default initial capacity (16) and load factor (0.75).
+     */
+    public LinkedHashMap() {
+        super();
+        accessOrder = false;
+    }
+
+    /**
+     * 调用HashMap构造函数构造具有指定初始容量（16）和负载因子（0.75）的 LinkedHashMap实例。
+     * Constructs an empty insertion-ordered <tt>LinkedHashMap</tt> instance
+     * with the specified initial capacity and a default load factor (0.75).
+     *
+     * @param  initialCapacity the initial capacity
+     * @throws IllegalArgumentException if the initial capacity is negative
+     */
+    public LinkedHashMap(int initialCapacity) {
+        super(initialCapacity);
+        accessOrder = false;
+    }
+
+    /**
+     * 调用HashMap构造函数构造具有指定初始容量（16）和指定负载因子（0.75）的 LinkedHashMap实例。
+     * Constructs an empty insertion-ordered <tt>LinkedHashMap</tt> instance
+     * with the specified initial capacity and load factor.
+     *
+     * @param  initialCapacity the initial capacity
+     * @param  loadFactor      the load factor
+     * @throws IllegalArgumentException if the initial capacity is negative
+     *         or the load factor is nonpositive
+     */
+    public LinkedHashMap(int initialCapacity, float loadFactor) {
+        super(initialCapacity, loadFactor);
+        accessOrder = false;
+    }
+
+    /**
+     * 构造具有与指定地图相同映射的插入序列 LinkedHashMap实例。
+     * Constructs an insertion-ordered <tt>LinkedHashMap</tt> instance with
+     * the same mappings as the specified map.  The <tt>LinkedHashMap</tt>
+     * instance is created with a default load factor (0.75) and an initial
+     * capacity sufficient to hold the mappings in the specified map.
+     *
+     * @param  m the map whose mappings are to be placed in this map
+     * @throws NullPointerException if the specified map is null
+     */
+    public LinkedHashMap(Map<? extends K, ? extends V> m) {
+        super();
+        accessOrder = false;
+        putMapEntries(m, false);
+    }
+
+    /**
+     * 调用HashMap构造函数构造具有指定初始容量（16）和指定负载因子（0.75）和指定插入顺序的 LinkedHashMap实例。
+     * Constructs an empty <tt>LinkedHashMap</tt> instance with the
+     * specified initial capacity, load factor and ordering mode.
+     *
+     * @param  initialCapacity the initial capacity
+     * @param  loadFactor      the load factor
+     * @param  accessOrder     the ordering mode - <tt>true</tt> for
+     *         access-order, <tt>false</tt> for insertion-order
+     * @throws IllegalArgumentException if the initial capacity is negative
+     *         or the load factor is nonpositive
+     */
+    public LinkedHashMap(int initialCapacity,
+                         float loadFactor,
+                         boolean accessOrder) {
+        super(initialCapacity, loadFactor);
+        this.accessOrder = accessOrder;
+    }
+
     // internal utilities
 
     // link at the end of list
     private void linkNodeLast(LinkedHashMap.Entry<K,V> p) {
         LinkedHashMap.Entry<K,V> last = tail;
+        // 把元素链接到双向链表的尾节点
         tail = p;
         if (last == null)
+            // 第一个元素存放到双向链表的头结点
             head = p;
         else {
+            // 维护尾节点的前后关系
             p.before = last;
             last.after = p;
         }
@@ -253,8 +333,9 @@ public class LinkedHashMap<K,V>
     }
 
     Node<K,V> newNode(int hash, K key, V value, Node<K,V> e) {
-        LinkedHashMap.Entry<K,V> p =
-            new LinkedHashMap.Entry<K,V>(hash, key, value, e);
+        // 构建LinkedHashMap.Entry
+        LinkedHashMap.Entry<K,V> p = new LinkedHashMap.Entry<K,V>(hash, key, value, e);
+        // 把元素链接到双向链表的尾节点
         linkNodeLast(p);
         return p;
     }
@@ -308,6 +389,7 @@ public class LinkedHashMap<K,V>
             LinkedHashMap.Entry<K,V> p =
                 (LinkedHashMap.Entry<K,V>)e, b = p.before, a = p.after;
             p.after = null;
+            // 如果 b 为 null，表明 p 为头节点
             if (b == null)
                 head = a;
             else
@@ -319,6 +401,7 @@ public class LinkedHashMap<K,V>
             if (last == null)
                 head = p;
             else {
+                // 将 p 接在链表的最后
                 p.before = last;
                 last.after = p;
             }
@@ -333,75 +416,6 @@ public class LinkedHashMap<K,V>
             s.writeObject(e.value);
         }
     }
-
-    /**
-     * Constructs an empty insertion-ordered <tt>LinkedHashMap</tt> instance
-     * with the specified initial capacity and load factor.
-     *
-     * @param  initialCapacity the initial capacity
-     * @param  loadFactor      the load factor
-     * @throws IllegalArgumentException if the initial capacity is negative
-     *         or the load factor is nonpositive
-     */
-    public LinkedHashMap(int initialCapacity, float loadFactor) {
-        super(initialCapacity, loadFactor);
-        accessOrder = false;
-    }
-
-    /**
-     * Constructs an empty insertion-ordered <tt>LinkedHashMap</tt> instance
-     * with the specified initial capacity and a default load factor (0.75).
-     *
-     * @param  initialCapacity the initial capacity
-     * @throws IllegalArgumentException if the initial capacity is negative
-     */
-    public LinkedHashMap(int initialCapacity) {
-        super(initialCapacity);
-        accessOrder = false;
-    }
-
-    /**
-     * Constructs an empty insertion-ordered <tt>LinkedHashMap</tt> instance
-     * with the default initial capacity (16) and load factor (0.75).
-     */
-    public LinkedHashMap() {
-        super();
-        accessOrder = false;
-    }
-
-    /**
-     * Constructs an insertion-ordered <tt>LinkedHashMap</tt> instance with
-     * the same mappings as the specified map.  The <tt>LinkedHashMap</tt>
-     * instance is created with a default load factor (0.75) and an initial
-     * capacity sufficient to hold the mappings in the specified map.
-     *
-     * @param  m the map whose mappings are to be placed in this map
-     * @throws NullPointerException if the specified map is null
-     */
-    public LinkedHashMap(Map<? extends K, ? extends V> m) {
-        super();
-        accessOrder = false;
-        putMapEntries(m, false);
-    }
-
-    /**
-     * Constructs an empty <tt>LinkedHashMap</tt> instance with the
-     * specified initial capacity, load factor and ordering mode.
-     *
-     * @param  initialCapacity the initial capacity
-     * @param  loadFactor      the load factor
-     * @param  accessOrder     the ordering mode - <tt>true</tt> for
-     *         access-order, <tt>false</tt> for insertion-order
-     * @throws IllegalArgumentException if the initial capacity is negative
-     *         or the load factor is nonpositive
-     */
-    public LinkedHashMap(int initialCapacity,
-                         float loadFactor,
-                         boolean accessOrder) {
-        super(initialCapacity, loadFactor);
-        this.accessOrder = accessOrder;
-    }
-
 
     /**
      * Returns <tt>true</tt> if this map maps one or more keys to the
@@ -437,8 +451,10 @@ public class LinkedHashMap<K,V>
      */
     public V get(Object key) {
         Node<K,V> e;
+        // 调用HashMap方法
         if ((e = getNode(hash(key), key)) == null)
             return null;
+        // 如果 accessOrder 为 true，则调用 afterNodeAccess 将被访问节点移动到链表最后
         if (accessOrder)
             afterNodeAccess(e);
         return e.value;

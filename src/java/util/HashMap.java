@@ -1936,10 +1936,15 @@ public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneabl
      * linked node.
      */
     static final class TreeNode<K,V> extends LinkedHashMap.Entry<K,V> {
+        // 父节点
         TreeNode<K,V> parent;  // red-black tree links
+        // 左节点
         TreeNode<K,V> left;
+        // 右节点
         TreeNode<K,V> right;
+        // 前置节点
         TreeNode<K,V> prev;    // needed to unlink next upon deletion
+        // 红还是黑
         boolean red;
         TreeNode(int hash, K key, V val, Node<K,V> next) {
             super(hash, key, val, next);
