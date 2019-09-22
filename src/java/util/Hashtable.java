@@ -127,21 +127,22 @@ import java.util.function.BiFunction;
  * @see     TreeMap
  * @since JDK1.0
  */
-public class Hashtable<K,V>
-    extends Dictionary<K,V>
-    implements Map<K,V>, Cloneable, java.io.Serializable {
+public class Hashtable<K,V> extends Dictionary<K,V> implements Map<K,V>, Cloneable, java.io.Serializable {
 
     /**
+     * 存放元素的哈希桶
      * The hash table data.
      */
     private transient Entry<?,?>[] table;
 
     /**
+     * 元素个数
      * The total number of entries in the hash table.
      */
     private transient int count;
 
     /**
+     * 要调整大小的下一个大小值（容量*加载因子）
      * The table is rehashed when its size exceeds this threshold.  (The
      * value of this field is (int)(capacity * loadFactor).)
      *
@@ -150,6 +151,7 @@ public class Hashtable<K,V>
     private int threshold;
 
     /**
+     * 加载因子
      * The load factor for the hashtable.
      *
      * @serial
@@ -420,8 +422,10 @@ public class Hashtable<K,V>
         modCount++;
 
         Entry<?,?> tab[] = table;
+        // 判断数组大小是否到达阈值
         if (count >= threshold) {
             // Rehash the table if the threshold is exceeded
+            // 扩容
             rehash();
 
             tab = table;
@@ -432,6 +436,7 @@ public class Hashtable<K,V>
         // Creates the new entry.
         @SuppressWarnings("unchecked")
         Entry<K,V> e = (Entry<K,V>) tab[index];
+        // 元素赋值
         tab[index] = new Entry<>(hash, key, value, e);
         count++;
     }
@@ -455,24 +460,30 @@ public class Hashtable<K,V>
      */
     public synchronized V put(K key, V value) {
         // Make sure the value is not null
+        // 不允许存放null值
         if (value == null) {
             throw new NullPointerException();
         }
 
         // Makes sure the key is not already in the hashtable.
         Entry<?,?> tab[] = table;
+        // key的哈希值
         int hash = key.hashCode();
+        // 元素在哈希桶的索引位置
         int index = (hash & 0x7FFFFFFF) % tab.length;
         @SuppressWarnings("unchecked")
         Entry<K,V> entry = (Entry<K,V>)tab[index];
+        // 此索引位置在哈希桶里有元素了，发生哈希冲突
         for(; entry != null ; entry = entry.next) {
             if ((entry.hash == hash) && entry.key.equals(key)) {
                 V old = entry.value;
+                // 旧值替换为新值
                 entry.value = value;
+                // 返回旧值
                 return old;
             }
         }
-
+        // 此索引位置在哈希桶里没有元素
         addEntry(hash, key, value, index);
         return null;
     }
