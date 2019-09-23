@@ -616,9 +616,68 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
         new ObjectStreamField("segmentShift", Integer.TYPE)
     };
 
+    /* ---------------- Fields -------------- */
+    /**
+     * 哈希桶
+     * The array of bins. Lazily initialized upon first insertion.
+     * Size is always a power of two. Accessed directly by iterators.
+     */
+    transient volatile Node<K,V>[] table;
+
+    /**
+     * 扩容用的下一个哈希桶
+     * The next table to use; non-null only while resizing.
+     */
+    private transient volatile Node<K,V>[] nextTable;
+
+    /**
+     * Base counter value, used mainly when there is no contention,
+     * but also as a fallback during table initialization
+     * races. Updated via CAS.
+     */
+    private transient volatile long baseCount;
+
+    /**
+     * 这个数值表示初始化或者下一次要扩容的大小，表初始化或者扩容的一个控制标识位
+     * 负数代表正在进行初始化或者扩容的操作
+     *  -1 代表初始化
+     *  -N 代表有n-1个线程在进行扩容操作
+     * 正数或者0表示没有进行初始化操作
+     * transient 修饰的属性不会被序列化，volatile保证可见性
+     *
+     * Table initialization and resizing control.  When negative, the
+     * table is being initialized or resized: -1 for initialization,
+     * else -(1 + the number of active resizing threads).  Otherwise,
+     * when table is null, holds the initial table size to use upon
+     * creation, or 0 for default. After initialization, holds the
+     * next element count value upon which to resize the table.
+     */
+    private transient volatile int sizeCtl;
+
+    /**
+     * The next table index (plus one) to split while resizing.
+     */
+    private transient volatile int transferIndex;
+
+    /**
+     * Spinlock (locked via CAS) used when resizing and/or creating CounterCells.
+     */
+    private transient volatile int cellsBusy;
+
+    /**
+     * Table of counter cells. When non-null, size is a power of 2.
+     */
+    private transient volatile CounterCell[] counterCells;
+
+    // views
+    private transient KeySetView<K,V> keySet;
+    private transient ValuesView<K,V> values;
+    private transient EntrySetView<K,V> entrySet;
+
     /* ---------------- Nodes -------------- */
 
     /**
+     * 键值对节点
      * Key-value entry.  This class is never exported out as a
      * user-mutable Map.Entry (i.e., one supporting setValue; see
      * MapEntry below), but can be used for read-only traversals used
@@ -629,6 +688,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
     static class Node<K,V> implements Map.Entry<K,V> {
         final int hash;
         final K key;
+        // value 和 next使用了volatile修饰，保证了线程之间的可见性
         volatile V val;
         volatile Node<K,V> next;
 
@@ -696,6 +756,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
     }
 
     /**
+     * 将指定的初始化参数转换为2的幂次方形式， 如果初始化参数为9 ，转换后初始大小为16
      * Returns a power of two table size for the given desired capacity.
      * See Hackers Delight, sec 3.2
      */
@@ -774,73 +835,18 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
         U.putObjectVolatile(tab, ((long)i << ASHIFT) + ABASE, v);
     }
 
-    /* ---------------- Fields -------------- */
-
-    /**
-     * The array of bins. Lazily initialized upon first insertion.
-     * Size is always a power of two. Accessed directly by iterators.
-     */
-    transient volatile Node<K,V>[] table;
-
-    /**
-     * The next table to use; non-null only while resizing.
-     */
-    private transient volatile Node<K,V>[] nextTable;
-
-    /**
-     * Base counter value, used mainly when there is no contention,
-     * but also as a fallback during table initialization
-     * races. Updated via CAS.
-     */
-    private transient volatile long baseCount;
-
-    /**
-     * 表初始化或者扩容的一个控制标识位
-     * 负数代表正在进行初始化或者扩容的操作
-     *  -1 代表初始化
-     *  -N 代表有n-1个线程在进行扩容操作
-     * 正数或者0表示没有进行初始化操作，这个数值表示初始化或者下一次要扩容的大小。
-     * transient 修饰的属性不会被序列化，volatile保证可见性
-     *
-     * Table initialization and resizing control.  When negative, the
-     * table is being initialized or resized: -1 for initialization,
-     * else -(1 + the number of active resizing threads).  Otherwise,
-     * when table is null, holds the initial table size to use upon
-     * creation, or 0 for default. After initialization, holds the
-     * next element count value upon which to resize the table.
-     */
-    private transient volatile int sizeCtl;
-
-    /**
-     * The next table index (plus one) to split while resizing.
-     */
-    private transient volatile int transferIndex;
-
-    /**
-     * Spinlock (locked via CAS) used when resizing and/or creating CounterCells.
-     */
-    private transient volatile int cellsBusy;
-
-    /**
-     * Table of counter cells. When non-null, size is a power of 2.
-     */
-    private transient volatile CounterCell[] counterCells;
-
-    // views
-    private transient KeySetView<K,V> keySet;
-    private transient ValuesView<K,V> values;
-    private transient EntrySetView<K,V> entrySet;
-
-
     /* ---------------- Public operations -------------- */
 
     /**
+     * 无参构造方法，没有进行任何操作
      * Creates a new, empty map with the default initial table size (16).
      */
     public ConcurrentHashMap() {
     }
 
     /**
+     * 指定初始化大小构造方法
+     *
      * Creates a new, empty map with an initial table size
      * accommodating the specified number of elements without the need
      * to dynamically resize.
@@ -860,6 +866,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
     }
 
     /**
+     * 将指定的集合转化为ConcurrentHashMap
      * Creates a new map with the same mappings as the given map.
      *
      * @param m the map
@@ -870,6 +877,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
     }
 
     /**
+     * 指定初始化大小和负载因子的构造方法
      * Creates a new, empty map with an initial table size based on
      * the given number of elements ({@code initialCapacity}) and
      * initial table density ({@code loadFactor}).
@@ -889,6 +897,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
     }
 
     /**
+     * 指定初始化大小，负载因子和concurrentLevel并发更新线程的数量，也可以理解为segment的个数
      * Creates a new, empty map with an initial table size based on
      * the given number of elements ({@code initialCapacity}), table
      * density ({@code loadFactor}), and number of concurrently
@@ -950,21 +959,26 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
      */
     public V get(Object key) {
         Node<K,V>[] tab; Node<K,V> e, p; int n, eh; K ek;
+        // 根据传入的key,获取相应的hash值，并再次散列
         int h = spread(key.hashCode());
+        // 然后判断当前的table数组是否为空  (n - 1) & h 为数组索引位置
         if ((tab = table) != null && (n = tab.length) > 0 &&
             (e = tabAt(tab, (n - 1) & h)) != null) {
             if ((eh = e.hash) == h) {
                 if ((ek = e.key) == key || (ek != null && key.equals(ek)))
                     return e.val;
             }
+            // eh< 0 表示红黑树节点
             else if (eh < 0)
                 return (p = e.find(h, key)) != null ? p.val : null;
+            // 链表遍历
             while ((e = e.next) != null) {
                 if (e.hash == h &&
                     ((ek = e.key) == key || (ek != null && key.equals(ek))))
                     return e.val;
             }
         }
+        // 不存在则返回null
         return null;
     }
 
@@ -1027,28 +1041,37 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
     final V putVal(K key, V value, boolean onlyIfAbsent) {
         // key 和 value 都不允许为null
         if (key == null || value == null) throw new NullPointerException();
+        // 再次散列，让数据均匀分布，减少碰撞次数
         int hash = spread(key.hashCode());
         int binCount = 0;
+        // 开始自旋 何时插入成功 何时跳出
         for (Node<K,V>[] tab = table;;) {
             Node<K,V> f; int n, i, fh;
+            // 如果table为空的话
             if (tab == null || (n = tab.length) == 0)
-                // 第一次插入 初始化
+                // 第一次put 开始初始化
                 tab = initTable();
+            // 数组在i的位置没有元素存在，直接放入
             else if ((f = tabAt(tab, i = (n - 1) & hash)) == null) {
-                if (casTabAt(tab, i, null,
-                             new Node<K,V>(hash, key, value, null)))
-                    break;                   // no lock when adding to empty bin
+                // 添加到table中，直接放进去，不需要加锁
+                if (casTabAt(tab, i, null, new Node<K,V>(hash, key, value, null)))
+                    // 退出循环 no lock when adding to empty bin
+                    break;
             }
+            // node的hash值为-1，则i的位置在进行MOVE操作，也就是在进行扩容操作，则多线程帮助扩容
             else if ((fh = f.hash) == MOVED)
                 tab = helpTransfer(tab, f);
             else {
                 V oldVal = null;
+                // 如果i的位置有元素存在，则在该节点加锁synchronized，判断是链表还是红黑树，按照相应的插入规则插入
                 synchronized (f) {
                     if (tabAt(tab, i) == f) {
+                        // 说明这个节点是一个链表的节点
                         if (fh >= 0) {
                             binCount = 1;
                             for (Node<K,V> e = f;; ++binCount) {
                                 K ek;
+                                // key 相等，使用新值替换旧值
                                 if (e.hash == hash &&
                                     ((ek = e.key) == key ||
                                      (ek != null && key.equals(ek)))) {
@@ -1058,6 +1081,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
                                     break;
                                 }
                                 Node<K,V> pred = e;
+                                // 放在链表的尾部
                                 if ((e = e.next) == null) {
                                     pred.next = new Node<K,V>(hash, key,
                                                               value, null);
@@ -1065,6 +1089,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
                                 }
                             }
                         }
+                        // 如果这个节点是树节点，就按照树的方式插入值
                         else if (f instanceof TreeBin) {
                             Node<K,V> p;
                             binCount = 2;
@@ -1078,6 +1103,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
                     }
                 }
                 if (binCount != 0) {
+                    // 如果链表长度已经达到临界值8 就需要把链表转换为树结构
                     if (binCount >= TREEIFY_THRESHOLD)
                         treeifyBin(tab, i);
                     if (oldVal != null)
@@ -1086,6 +1112,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
                 }
             }
         }
+        // 将当前ConcurrentHashMap的元素数量+1
         addCount(1L, binCount);
         return null;
     }
@@ -2177,6 +2204,10 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
     /* ---------------- Special Nodes -------------- */
 
     /**
+     * 一个用于连接两个table的节点类。它包含一个nextTable指针，用于指向下一张表。
+     * 而且这个节点的key value next指针全部为null，它的hash值为-1. 这里面定义的
+     * find的方法是从nextTable里进行查询节点，而不是以自身为头节点进行查找
+     *
      * A node inserted at head of bins during transfer operations.
      */
     static final class ForwardingNode<K,V> extends Node<K,V> {
@@ -2700,6 +2731,12 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
     /* ---------------- TreeNodes -------------- */
 
     /**
+     * 红黑树节点
+     * 当链表长度过长的时候，会转换为TreeNode是与HashMap不相同的是，它并不是直接转换为红黑树，
+     * 而是把这些结点包装成TreeNode放在TreeBin对象中，由TreeBin完成对红黑树的包装。
+     * 而且TreeNode在ConcurrentHashMap集成自Node类，而并非HashMap中的集成自LinkedHashMap.Entry类，
+     * 也就是说TreeNode带有next指针，这样做的目的是方便基于TreeBin的访问。
+     *
      * Nodes for use in TreeBins
      */
     static final class TreeNode<K,V> extends Node<K,V> {
@@ -2756,6 +2793,10 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
     /* ---------------- TreeBins -------------- */
 
     /**
+     * 这个类并不负责包装用户的key、value信息，而是包装的很多TreeNode节点。
+     * 它代替了TreeNode的根节点，也就是说在实际的ConcurrentHashMap“数组”中，
+     * 存放的是TreeBin对象，而不是TreeNode对象，这是与HashMap的区别。另外这个类还带有了读写锁。
+     *
      * TreeNodes used at the heads of bins. TreeBins do not hold user
      * keys or values, but instead point to list of TreeNodes and
      * their root. They also maintain a parasitic read-write lock
