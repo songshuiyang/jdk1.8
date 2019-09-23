@@ -264,8 +264,8 @@ import java.util.stream.Stream;
  * @param <K> the type of keys maintained by this map
  * @param <V> the type of mapped values
  */
-public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
-    implements ConcurrentMap<K,V>, Serializable {
+public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements ConcurrentMap<K,V>, Serializable {
+
     private static final long serialVersionUID = 7249069246763182397L;
 
     /*
@@ -502,6 +502,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
     /* ---------------- Constants -------------- */
 
     /**
+     * 集合最大容量 = 2的30次方
      * The largest possible table capacity.  This value must be
      * exactly 1<<30 to stay within Java array allocation and indexing
      * bounds for power of two table sizes, and is further required
@@ -511,24 +512,30 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
     private static final int MAXIMUM_CAPACITY = 1 << 30;
 
     /**
+     * 默认容量为16，为什么和HashMap一样都是16，这里不用 1 << 4
+     * @see java.util.HashMap#DEFAULT_INITIAL_CAPACITY
      * The default initial table capacity.  Must be a power of 2
      * (i.e., at least 1) and at most MAXIMUM_CAPACITY.
      */
     private static final int DEFAULT_CAPACITY = 16;
 
     /**
+     * 数组最大数量大小
      * The largest possible (non-power of two) array size.
      * Needed by toArray and related methods.
      */
     static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
 
     /**
+     * 该表的默认并发级别 未使用，但*定义为与此类的先前版本兼容。
      * The default concurrency level for this table. Unused but
      * defined for compatibility with previous versions of this class.
      */
     private static final int DEFAULT_CONCURRENCY_LEVEL = 16;
 
     /**
+     * 扩容负载因子
+     *
      * The load factor for this table. Overrides of this value in
      * constructors affect only the initial table capacity.  The
      * actual floating point value isn't normally used -- it is
@@ -538,6 +545,8 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
     private static final float LOAD_FACTOR = 0.75f;
 
     /**
+     * 阈值达到8 链表转为红黑树
+     *
      * The bin count threshold for using a tree rather than list for a
      * bin.  Bins are converted to trees when adding an element to a
      * bin with at least this many nodes. The value must be greater
@@ -555,6 +564,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
     static final int UNTREEIFY_THRESHOLD = 6;
 
     /**
+     *
      * The smallest table capacity for which bins may be treeified.
      * (Otherwise the table is resized if too many nodes in a bin.)
      * The value should be at least 4 * TREEIFY_THRESHOLD to avoid
@@ -596,7 +606,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
     static final int RESERVED  = -3; // hash for transient reservations
     static final int HASH_BITS = 0x7fffffff; // usable bits of normal node hash
 
-    /** Number of CPUS, to place bounds on some sizings */
+    /** Number of CPUS, to place bounds on some sizings 可用处理器数量 */
     static final int NCPU = Runtime.getRuntime().availableProcessors();
 
     /** For serialization compatibility. */
@@ -785,6 +795,13 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
     private transient volatile long baseCount;
 
     /**
+     * 表初始化或者扩容的一个控制标识位
+     * 负数代表正在进行初始化或者扩容的操作
+     *  -1 代表初始化
+     *  -N 代表有n-1个线程在进行扩容操作
+     * 正数或者0表示没有进行初始化操作，这个数值表示初始化或者下一次要扩容的大小。
+     * transient 修饰的属性不会被序列化，volatile保证可见性
+     *
      * Table initialization and resizing control.  When negative, the
      * table is being initialized or resized: -1 for initialization,
      * else -(1 + the number of active resizing threads).  Otherwise,
@@ -1008,12 +1025,14 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
 
     /** Implementation for put and putIfAbsent */
     final V putVal(K key, V value, boolean onlyIfAbsent) {
+        // key 和 value 都不允许为null
         if (key == null || value == null) throw new NullPointerException();
         int hash = spread(key.hashCode());
         int binCount = 0;
         for (Node<K,V>[] tab = table;;) {
             Node<K,V> f; int n, i, fh;
             if (tab == null || (n = tab.length) == 0)
+                // 第一次插入 初始化
                 tab = initTable();
             else if ((f = tabAt(tab, i = (n - 1) & hash)) == null) {
                 if (casTabAt(tab, i, null,
@@ -2223,23 +2242,44 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
     private final Node<K,V>[] initTable() {
         Node<K,V>[] tab; int sc;
         while ((tab = table) == null || tab.length == 0) {
+            // sizeCtl < 0 表示有线程正在进行初始化操作，从运行状态变为就绪状态。
             if ((sc = sizeCtl) < 0)
-                Thread.yield(); // lost initialization race; just spin
+                // 丢失了初始化资格；线程让步一下 lost initialization race; just spin
+                Thread.yield();
+            /**
+             * 设置SIZECTL的值为-1，阻塞其他线程的操作
+             * 该方法有四个参数
+             * 第一个参数：需要改变的对象
+             * 第二个参数：偏移量
+             * 第三个参数：期待的值
+             * 第四个参数：更新后的值
+             */
             else if (U.compareAndSwapInt(this, SIZECTL, sc, -1)) {
                 try {
+                    // 再次检查是否有线程进行了初始化操作
                     if ((tab = table) == null || tab.length == 0) {
+                        // 默认初始化大小为16
                         int n = (sc > 0) ? sc : DEFAULT_CAPACITY;
+                        // 初始化数组
                         @SuppressWarnings("unchecked")
                         Node<K,V>[] nt = (Node<K,V>[])new Node<?,?>[n];
                         table = tab = nt;
+                        /**
+                         * 下面的位运算是将sc的值设置为n的0.75倍
+                         * 第一次默认是 16 - (16 >>> 2) = 16 - 4 = 12
+                         * 16 >>> 2  为 二进制10000右移2位 = 100 = 4
+                         */
                         sc = n - (n >>> 2);
                     }
                 } finally {
+                    // 更改sizeCtl的值
                     sizeCtl = sc;
                 }
+                // 中断循坏返回
                 break;
             }
         }
+        // 返回初始化的值
         return tab;
     }
 
@@ -2292,6 +2332,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
     }
 
     /**
+     * 扩容函数
      * Helps transfer if a resize is in progress.
      */
     final Node<K,V>[] helpTransfer(Node<K,V>[] tab, Node<K,V> f) {
@@ -2365,21 +2406,27 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * above for explanation.
      */
     private final void transfer(Node<K,V>[] tab, Node<K,V>[] nextTab) {
+        // n 是tab的长度 ， stride 初始值为0
         int n = tab.length, stride;
+        // 判断cpu处理多线程的能力，如果小于16就直接赋值为16
         if ((stride = (NCPU > 1) ? (n >>> 3) / NCPU : n) < MIN_TRANSFER_STRIDE)
             stride = MIN_TRANSFER_STRIDE; // subdivide range
         if (nextTab == null) {            // initiating
             try {
+                // 构造一个容量是原来两倍的Node<K ,V> 类型新数组
                 @SuppressWarnings("unchecked")
                 Node<K,V>[] nt = (Node<K,V>[])new Node<?,?>[n << 1];
+                // 新数组引用赋值
                 nextTab = nt;
             } catch (Throwable ex) {      // try to cope with OOME
+                // 最大值
                 sizeCtl = Integer.MAX_VALUE;
                 return;
             }
             nextTable = nextTab;
             transferIndex = n;
         }
+        // 获取新数组的长度
         int nextn = nextTab.length;
         ForwardingNode<K,V> fwd = new ForwardingNode<K,V>(nextTab);
         boolean advance = true;
