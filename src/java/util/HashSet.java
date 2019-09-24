@@ -87,14 +87,23 @@ import java.io.InvalidObjectException;
  */
 
 public class HashSet<E> extends AbstractSet<E> implements Set<E>, Cloneable, java.io.Serializable {
+
     static final long serialVersionUID = -5024744406713321676L;
 
+    /**
+     * 底层使用HashMap来保存HashSet中所有元素。
+     */
     private transient HashMap<E,Object> map;
 
-    // Dummy value to associate with an Object in the backing Map
+    /**
+     * 定义一个虚拟的Object对象作为HashMap的value，将此对象定义为static final。
+     * Dummy value to associate with an Object in the backing Map
+     */
     private static final Object PRESENT = new Object();
 
     /**
+     * 默认的无参构造器，构造一个空的HashSet，实际底层会初始化一个空的HashMap，并使用默认初始容量为16和加载因子0.75。
+     *
      * Constructs a new, empty set; the backing <tt>HashMap</tt> instance has
      * default initial capacity (16) and load factor (0.75).
      */
@@ -103,6 +112,8 @@ public class HashSet<E> extends AbstractSet<E> implements Set<E>, Cloneable, jav
     }
 
     /**
+     * 构造一个包含指定collection中的元素的新set。
+     *
      * Constructs a new set containing the elements in the specified
      * collection.  The <tt>HashMap</tt> is created with default load factor
      * (0.75) and an initial capacity sufficient to contain the elements in
@@ -117,6 +128,9 @@ public class HashSet<E> extends AbstractSet<E> implements Set<E>, Cloneable, jav
     }
 
     /**
+     * 以指定的initialCapacity和loadFactor构造一个空的HashSet。
+     * 实际底层以相应的参数构造一个空的HashMap
+     *
      * Constructs a new, empty set; the backing <tt>HashMap</tt> instance has
      * the specified initial capacity and the specified load factor.
      *
@@ -130,6 +144,8 @@ public class HashSet<E> extends AbstractSet<E> implements Set<E>, Cloneable, jav
     }
 
     /**
+     * 以指定的initialCapacity构造一个空的HashSet。
+     * 实际底层以相应的参数及加载因子loadFactor为0.75构造一个空的HashMap。
      * Constructs a new, empty set; the backing <tt>HashMap</tt> instance has
      * the specified initial capacity and default load factor (0.75).
      *
@@ -142,6 +158,10 @@ public class HashSet<E> extends AbstractSet<E> implements Set<E>, Cloneable, jav
     }
 
     /**
+     * 以指定的initialCapacity和loadFactor构造一个新的空链接哈希集合。
+     * 此构造函数为包访问权限，不对外公开，实际只是是对LinkedHashSet的支持。
+     * 实际底层会以指定的参数构造一个空LinkedHashMap实例来实现。
+     *
      * Constructs a new, empty linked hash set.  (This package private
      * constructor is only used by LinkedHashSet.) The backing
      * HashMap instance is a LinkedHashMap with the specified initial
@@ -159,10 +179,14 @@ public class HashSet<E> extends AbstractSet<E> implements Set<E>, Cloneable, jav
     }
 
     /**
+     * 返回对此set中元素进行迭代的迭代器。返回元素的顺序并不是特定的。
+     * 底层实际调用底层HashMap的keySet来返回所有的key。
+     * 可见HashSet中的元素，只是存放在了底层HashMap的key上，
+     *
      * Returns an iterator over the elements in this set.  The elements
      * are returned in no particular order.
      *
-     * @return an Iterator over the elements in this set
+     * @return an Iterator over the elements in this set 对此set中元素进行迭代的Iterator。
      * @see ConcurrentModificationException
      */
     public Iterator<E> iterator() {
@@ -170,6 +194,8 @@ public class HashSet<E> extends AbstractSet<E> implements Set<E>, Cloneable, jav
     }
 
     /**
+     * 返回此set中的元素的数量（set的容量）。
+     *
      * Returns the number of elements in this set (its cardinality).
      *
      * @return the number of elements in this set (its cardinality)
@@ -201,6 +227,18 @@ public class HashSet<E> extends AbstractSet<E> implements Set<E>, Cloneable, jav
     }
 
     /**
+     * 如果此set中尚未包含指定元素，则添加指定元素。
+     * 更确切地讲，如果此 set 没有包含满足(e==null ? e2==null : e.equals(e2))
+     * 的元素e2，则向此set 添加指定的元素e。
+     * 如果此set已包含该元素，则该调用不更改set并返回false。
+     *
+     * 底层实际将将该元素作为key放入HashMap。
+     * 由于HashMap的put()方法添加key-value对时，当新放入HashMap的Entry中key
+     * 与集合中原有Entry的key相同（hashCode()返回值相等，通过equals比较也返回true），
+     * 新添加的Entry的value会将覆盖原来Entry的value，但key不会有任何改变，
+     * 因此如果向HashSet中添加一个已经存在的元素时，新添加的集合元素将不会被放入HashMap中，
+     * 原来的元素也不会有任何改变，这也就满足了Set中元素不重复的特性。
+     *
      * Adds the specified element to this set if it is not already present.
      * More formally, adds the specified element <tt>e</tt> to this set if
      * this set contains no element <tt>e2</tt> such that
@@ -217,6 +255,11 @@ public class HashSet<E> extends AbstractSet<E> implements Set<E>, Cloneable, jav
     }
 
     /**
+     * 如果指定元素存在于此set中，则将其移除。
+     * 更确切地讲，如果此set包含一个满足(o==null ? e==null : o.equals(e))的元素e，
+     * 则将其移除。如果此set已包含该元素，则返回true
+     * （或者：如果此set因调用而发生更改，则返回true）。（一旦调用返回，则此set不再包含该元素）。
+     *
      * Removes the specified element from this set if it is present.
      * More formally, removes an element <tt>e</tt> such that
      * <tt>(o==null&nbsp;?&nbsp;e==null&nbsp;:&nbsp;o.equals(e))</tt>,
