@@ -115,9 +115,7 @@ package java.util;
  * @since   1.4
  */
 
-public class LinkedHashSet<E>
-    extends HashSet<E>
-    implements Set<E>, Cloneable, java.io.Serializable {
+public class LinkedHashSet<E> extends HashSet<E> implements Set<E>, Cloneable, java.io.Serializable {
 
     private static final long serialVersionUID = -2851667679971038690L;
 
@@ -131,6 +129,7 @@ public class LinkedHashSet<E>
      *               than zero, or if the load factor is nonpositive
      */
     public LinkedHashSet(int initialCapacity, float loadFactor) {
+        // 调用父类HashSet构造函数，实际上构造的是 LinkedHashMap
         super(initialCapacity, loadFactor, true);
     }
 
