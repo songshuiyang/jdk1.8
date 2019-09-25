@@ -28,6 +28,9 @@ package java.lang;
 import java.lang.annotation.Native;
 
 /**
+ * Integer类包装一个对象中的原始类型int的值。 类型为Integer的对象包含一个单一字段，其类型为int 。
+ * 此外，该类还提供了一些将int转换为String和String转换为int ，以及在处理int时有用的其他常量和方法。
+ *
  * The {@code Integer} class wraps a value of the primitive type
  * {@code int} in an object. An object of type {@code Integer}
  * contains a single field whose type is {@code int}.
@@ -50,19 +53,28 @@ import java.lang.annotation.Native;
  * @since JDK1.0
  */
 public final class Integer extends Number implements Comparable<Integer> {
+
+    /** use serialVersionUID from JDK 1.0.2 for interoperability */
+    @Native private static final long serialVersionUID = 1360826667806852920L;
+
     /**
+     * 最小值
      * A constant holding the minimum value an {@code int} can
      * have, -2<sup>31</sup>.
      */
     @Native public static final int   MIN_VALUE = 0x80000000;
 
     /**
+     *
+     * 最大值
      * A constant holding the maximum value an {@code int} can
      * have, 2<sup>31</sup>-1.
      */
     @Native public static final int   MAX_VALUE = 0x7fffffff;
 
     /**
+     * 类原始类型 int的 类实例。
+     *
      * The {@code Class} instance representing the primitive type
      * {@code int}.
      *
@@ -72,6 +84,8 @@ public final class Integer extends Number implements Comparable<Integer> {
     public static final Class<Integer>  TYPE = (Class<Integer>) Class.getPrimitiveClass("int");
 
     /**
+     * 用于将数字表示为字符串的所有可能字符
+     *
      * All possible chars for representing a number as a String
      */
     final static char[] digits = {
@@ -82,6 +96,38 @@ public final class Integer extends Number implements Comparable<Integer> {
         'o' , 'p' , 'q' , 'r' , 's' , 't' ,
         'u' , 'v' , 'w' , 'x' , 'y' , 'z'
     };
+
+    // Bit twiddling
+    /**
+     * 用于表示二进制补码二进制形式的 int值的位数。
+     *
+     * The number of bits used to represent an {@code int} value in two's
+     * complement binary form.
+     *
+     * @since 1.5
+     */
+    @Native public static final int SIZE = 32;
+
+    /**
+     * The number of bytes used to represent a {@code int} value in two's
+     * complement binary form.
+     *
+     * @since 1.8
+     */
+    public static final int BYTES = SIZE / Byte.SIZE;
+
+
+    /**
+     * 存放数据的值
+     *
+     * The value of the {@code Integer}.
+     *
+     * @serial
+     */
+    private final int value;
+
+    final static int [] sizeTable = { 9, 99, 999, 9999, 99999, 999999, 9999999,
+            99999999, 999999999, Integer.MAX_VALUE };
 
     /**
      * Returns a string representation of the first argument in the
@@ -464,9 +510,6 @@ public final class Integer extends Number implements Comparable<Integer> {
         }
     }
 
-    final static int [] sizeTable = { 9, 99, 999, 9999, 99999, 999999, 9999999,
-                                      99999999, 999999999, Integer.MAX_VALUE };
-
     // Requires positive x
     static int stringSize(int x) {
         for (int i=0; ; i++)
@@ -831,13 +874,6 @@ public final class Integer extends Number implements Comparable<Integer> {
             return IntegerCache.cache[i + (-IntegerCache.low)];
         return new Integer(i);
     }
-
-    /**
-     * The value of the {@code Integer}.
-     *
-     * @serial
-     */
-    private final int value;
 
     /**
      * Constructs a newly allocated {@code Integer} object that
@@ -1312,23 +1348,6 @@ public final class Integer extends Number implements Comparable<Integer> {
     }
 
 
-    // Bit twiddling
-
-    /**
-     * The number of bits used to represent an {@code int} value in two's
-     * complement binary form.
-     *
-     * @since 1.5
-     */
-    @Native public static final int SIZE = 32;
-
-    /**
-     * The number of bytes used to represent a {@code int} value in two's
-     * complement binary form.
-     *
-     * @since 1.8
-     */
-    public static final int BYTES = SIZE / Byte.SIZE;
 
     /**
      * Returns an {@code int} value with at most a single one-bit, in the
@@ -1589,7 +1608,4 @@ public final class Integer extends Number implements Comparable<Integer> {
     public static int min(int a, int b) {
         return Math.min(a, b);
     }
-
-    /** use serialVersionUID from JDK 1.0.2 for interoperability */
-    @Native private static final long serialVersionUID = 1360826667806852920L;
 }

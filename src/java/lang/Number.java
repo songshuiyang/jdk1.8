@@ -26,6 +26,8 @@
 package java.lang;
 
 /**
+ * 抽象类Number是表示数字类型类可转换为基本数据类型
+ *
  * The abstract class {@code Number} is the superclass of platform
  * classes representing numeric values that are convertible to the
  * primitive types {@code byte}, {@code double}, {@code float}, {@code
