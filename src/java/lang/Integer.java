@@ -821,11 +821,15 @@ public final class Integer extends Number implements Comparable<Integer> {
      */
 
     private static class IntegerCache {
+        // 最小值-128
         static final int low = -128;
+        // 最大值默认为127，可以通过属性来配置
         static final int high;
+        // 缓存值
         static final Integer cache[];
 
         static {
+            // 最大值可以通过属性来配置
             // high value may be configured by property
             int h = 127;
             String integerCacheHighPropValue =
@@ -844,9 +848,11 @@ public final class Integer extends Number implements Comparable<Integer> {
 
             cache = new Integer[(high - low) + 1];
             int j = low;
+            // for循环构造
             for(int k = 0; k < cache.length; k++)
                 cache[k] = new Integer(j++);
 
+            // 最大值必须大于或等于127
             // range [-128, 127] must be interned (JLS7 5.1.7)
             assert IntegerCache.high >= 127;
         }
